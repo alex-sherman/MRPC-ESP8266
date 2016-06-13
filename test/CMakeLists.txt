@@ -1,12 +1,6 @@
 
-add_executable(test_proxy
-    test_proxy.c
+add_executable(test_rpc
+    test_rpc
 )
 
-target_link_libraries(test_proxy jrpc)
-
-add_executable(test_server
-    test_server.c
-)
-
-target_link_libraries(test_server jrpc)
+target_link_libraries(test_rpc jrpc)
