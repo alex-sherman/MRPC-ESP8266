@@ -7,3 +7,4 @@ Makefile
 test_proxy
 test_server
 install_manifest.txt
+build
