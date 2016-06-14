@@ -1,4 +1,4 @@
-#include "jrpc.h"
+#include "mrpc.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -31,19 +31,12 @@ void SocketTransport::send(Message *msg) {
 
 }
 
-Message *SocketTransport::recv() {
+int SocketTransport::recv(char *buffer, size_t buffer_size) {
     struct sockaddr_in from;
     uint from_size;
-    char buffer[4096];
 
     while(1) {
         from_size = sizeof(from);
-        int size = recvfrom(this->sock, buffer, sizeof(buffer), 0, (struct sockaddr *)&from, &from_size);
-        if(size < 0) {
-            perror("\n");
-        }
-        else
-            printf("Size: %d\n", size);
-        return NULL;
+        return recvfrom(this->sock, buffer, buffer_size, MSG_DONTWAIT, (struct sockaddr *)&from, &from_size);
     }
 }

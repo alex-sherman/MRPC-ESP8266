@@ -1,5 +1,5 @@
-#ifndef _JRPC_H_
-#define _JRPC_H_
+#ifndef _MRPC_H_
+#define _MRPC_H_
 
 #include <stdlib.h>
 #include <sys/socket.h>
@@ -7,12 +7,15 @@
 #include <string.h>
 #include <json/json.h>
 #include <thread>
+#include "message.h"
+#include "service.h"
+#include "routing.h"
 
 namespace MRPC {
 
     class Transport;
     class Service;
-    class Message;
+    class Routing;
 
     class Node {
     public:
@@ -20,28 +23,32 @@ namespace MRPC {
         Node();
         std::string guid;
         void use_transport(Transport *transport);
+        void register_service(std::string path, Service *service);
+        void on_recv(Message *msg);
         void wait();
+        bool poll();
     private:
+        Routing *routing;
         static Node *_single;
         std::vector<MRPC::Transport*> transports;
-        std::map<std::string, Service> services;
+        std::map<std::string, Service*> services;
     };
     class Transport {
     public:
-        void begin();
-        virtual void send(Message *message) = 0;
-        virtual Message *recv() = 0;
+        bool poll();
         void close();
     private:
+        virtual void send(Message *message) = 0;
+        virtual int recv(char *buffer, size_t size) = 0;
         std::thread recv_thread;
     };
     class SocketTransport : public Transport {
     public:
         SocketTransport();
         SocketTransport(int local_port);
-        void send(Message *message);
-        Message *recv();
     private:
+        void send(Message *message);
+        int recv(char *buffer, size_t size);
         int sock;
     };
     class Proxy {
@@ -51,10 +58,7 @@ namespace MRPC {
         int sockfd;
         int next_id;
     };
-    class Service {
-
-    };
     
 }
 
-#endif //_JRPC_H_
+#endif //_MRPC_H_

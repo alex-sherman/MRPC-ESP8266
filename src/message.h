@@ -1,9 +1,15 @@
-#ifndef JRPC_MESSAGE_H_
-#define JRPC_MESSAGE_H_
+#ifndef _JRPC_MESSAGE_H_
+#define _JRPC_MESSAGE_H_
 
-Json::Value jrpc_init_message(int id);
-int jrpc_message_send(int sockfd, Json::Value jobj);
-Json::Value jrpc_read_message(int sockfd);
-Json::Value jrpc_new_request(int id, const char *method);
+namespace MRPC {
 
-#endif //JRPC_MESSAGE_H_
+    class Message : public Json::Value {
+    public:
+        static Message *FromString(char *str, size_t size);
+        bool is_request();
+        bool is_response();
+        bool is_valid();
+    };
+}
+
+#endif //_JRPC_MESSAGE_H_
