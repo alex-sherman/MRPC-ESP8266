@@ -10,21 +10,25 @@
 #include "message.h"
 #include "service.h"
 #include "routing.h"
+#include "path.h"
+#include "uuid.h"
 
 namespace MRPC {
 
     class Transport;
     class Service;
     class Routing;
+    class UUID;
 
     class Node {
     public:
         static Node *Single();
         Node();
-        std::string guid;
+        UUID guid;
         void use_transport(Transport *transport);
         void register_service(std::string path, Service *service);
-        void on_recv(Message *msg);
+        Service *get_service(Path path);
+        void on_recv(Message msg);
         void wait();
         bool poll();
     private:
@@ -37,18 +41,19 @@ namespace MRPC {
     public:
         bool poll();
         void close();
+        virtual void send(Message message) = 0;
     private:
-        virtual void send(Message *message) = 0;
-        virtual int recv(char *buffer, size_t size) = 0;
+        virtual Message recv() = 0;
         std::thread recv_thread;
     };
     class SocketTransport : public Transport {
     public:
         SocketTransport();
         SocketTransport(int local_port);
+        void send(Message message);
     private:
-        void send(Message *message);
-        int recv(char *buffer, size_t size);
+        std::map<std::string, sockaddr_storage> known_guids;
+        Message recv();
         int sock;
     };
     class Proxy {

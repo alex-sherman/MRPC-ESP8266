@@ -6,6 +6,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <iostream>
 
 using namespace MRPC;
 
@@ -27,16 +28,36 @@ SocketTransport::SocketTransport(int local_port) {
     }
 }
 
-void SocketTransport::send(Message *msg) {
-
+void SocketTransport::send(Message msg) {
+    struct sockaddr_storage *dst = NULL;
+    std::map<std::string, sockaddr_storage>::iterator it;
+    it = known_guids.find(msg["dst"].asString());
+    if(it != known_guids.end()) {
+        dst = &it->second;
+    }
+    if(dst) {
+        Json::FastWriter writer;
+        std::string str = writer.write(msg);
+        size_t len = str.length();
+        int result = sendto(sock, str.c_str(), len, 0, (struct sockaddr *)dst, sizeof(sockaddr_storage));
+    }
 }
 
-int SocketTransport::recv(char *buffer, size_t buffer_size) {
-    struct sockaddr_in from;
+Message SocketTransport::recv() {
+    char buffer[4096];
+    struct sockaddr_storage from;
     uint from_size;
+    Message output;
 
     while(1) {
         from_size = sizeof(from);
-        return recvfrom(this->sock, buffer, buffer_size, MSG_DONTWAIT, (struct sockaddr *)&from, &from_size);
+        int recvd = recvfrom(this->sock, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&from, &from_size);
+        if(recvd > 0) {
+            output = Message::FromString(buffer, recvd);
+            if(output.is_valid())
+                known_guids[output["src"].asString()] = from;
+            return output;
+        }
     }
+    return output;
 }

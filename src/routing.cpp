@@ -3,11 +3,16 @@
 #include <iostream>
 #include "mrpc.h"
 #include "routing.h"
+#include "exception.h"
 
 using namespace MRPC;
 
-Json::Value *who_has(Json::Value args, Json::Value kwargs) {
-    std::cout << args[0] << "\n";
+Json::Value who_has(Json::Value args, Json::Value kwargs) {
+    Path path = Path(args[0].asString());
+    Service *service = Node::Single()->get_service(path);
+    if(service)
+        return Node::Single()->guid.hex;
+    throw NoReturn("No method " + path.service + " could be found");
 }
 
 Routing::Routing() {

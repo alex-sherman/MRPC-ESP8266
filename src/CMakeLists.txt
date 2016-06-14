@@ -9,6 +9,7 @@ add_library(mrpc SHARED
     routing
     service
     path
+    uuid
 )
 target_include_directories (mrpc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
