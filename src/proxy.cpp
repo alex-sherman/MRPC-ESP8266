@@ -1,5 +1,4 @@
 #include "jrpc.h"
-#include "sockets.h"
 #include "message.h"
 
 #include <stdarg.h>
