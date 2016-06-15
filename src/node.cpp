@@ -7,6 +7,7 @@
 #include <thread>
 #include "path.h"
 #include "exception.h"
+#include <exception>
 #include "uuid.h"
 #include <time.h>
 
@@ -49,7 +50,7 @@ void Node::on_recv(Message msg) {
                 catch(NoReturn &e) {
                     return;
                 }
-                catch(MRPCError &e) {
+                catch(std::exception &e) {
                     response["error"] = e.what();
                     std::cout << e.what() << "\n";
                 }
@@ -57,6 +58,13 @@ void Node::on_recv(Message msg) {
                     transports[i]->send(response);
                 }
             }
+        }
+    }
+    else if(msg.is_response()) {
+        Result *result = results[msg["id"].asInt()];
+        if(result) {
+            bool failure = !msg["result"];
+            result->resolve(failure ? msg["error"] : msg["result"], failure);
         }
     }
 }

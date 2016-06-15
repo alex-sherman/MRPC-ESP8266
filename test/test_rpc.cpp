@@ -29,7 +29,5 @@ int main() {
     otherService.add_method("echo", &echo1);
     self->register_service("/OtherService", &otherService);
     self->use_transport(trans);
-    while(true) {
-        self->poll();
-    }
+    self->wait();
 }

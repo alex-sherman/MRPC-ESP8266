@@ -16,7 +16,11 @@ SocketTransport::SocketTransport()
 }
 
 SocketTransport::SocketTransport(int local_port) {
-    this->sock = socket(AF_INET, SOCK_DGRAM, 0);
+    sock = socket(AF_INET, SOCK_DGRAM, 0);
+
+    ((struct sockaddr_in*)&broadcast)->sin_family = AF_INET;
+    ((struct sockaddr_in*)&broadcast)->sin_addr.s_addr = 0xFFFFFFFF;
+    ((struct sockaddr_in*)&broadcast)->sin_port = htons(local_port);
 
     struct sockaddr_in myaddr;
     memset((char *)&myaddr, 0, sizeof(myaddr));
@@ -24,25 +28,44 @@ SocketTransport::SocketTransport(int local_port) {
     myaddr.sin_addr.s_addr = htonl(INADDR_ANY);
     myaddr.sin_port = htons(local_port);
 
-    if (bind(this->sock, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
+    if (bind(sock, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
         perror("bind failed");
     }
+
+    int broadcastPermission = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (void *) &broadcastPermission, 
+          sizeof(broadcastPermission)) < 0)
+        perror("setsockopt() failed");
+}
+
+void sendmsg(int sock, Message msg, struct sockaddr_storage *dst) {
+    Json::FastWriter writer;
+    std::string str = writer.write(msg);
+    size_t len = str.length();
+    int result = sendto(sock, str.c_str(), len, 0, (struct sockaddr *)dst, sizeof(sockaddr_storage));
 }
 
 void SocketTransport::send(Message msg) {
     struct sockaddr_storage *dst = NULL;
-    std::map<std::string, sockaddr_storage>::iterator it;
-    it = known_guids.find(msg["dst"].asString());
-    if(it != known_guids.end()) {
-        dst = &it->second;
+    Path dst_path = Path(msg["dst"].asString());
+    std::cout << dst_path.is_broadcast << "\n";
+    if(dst_path.is_broadcast) {
+        dst = &broadcast;
+    }
+    else {
+        std::map<std::string, sockaddr_storage>::iterator it;
+        it = known_guids.find(msg["dst"].asString());
+        if(it != known_guids.end()) {
+            dst = &it->second;
+        }
     }
     if(dst) {
-        Json::FastWriter writer;
-        std::string str = writer.write(msg);
-        size_t len = str.length();
-        int result = sendto(sock, str.c_str(), len, 0, (struct sockaddr *)dst, sizeof(sockaddr_storage));
-        return;
+        sendmsg(sock, msg, dst);
     }
+    else {
+        Result *result = Node::Single()->rpc("*/Routing", "who_has", msg["dst"]);
+    }
+
     //throw InvalidPath("Failed to send to destination " + msg["dst"].asString());
 
 }

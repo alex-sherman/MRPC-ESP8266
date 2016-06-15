@@ -21,8 +21,15 @@ namespace MRPC {
     class Routing;
     class UUID;
     class Result {
+        typedef void (*Callback)(Json::Value);
+        
     public:
-        Result() { };
+        Result() { }
+        void resolve(Json::Value, bool failure);
+        void when(Callback callback);
+        std::vector<Callback> callbacks;
+        bool completed;
+        bool failure;
     };
 
     //Result *rpc(std::string path, std::string procedure, )
@@ -65,6 +72,7 @@ namespace MRPC {
         std::map<std::string, sockaddr_storage> known_guids;
         Message recv();
         int sock;
+        struct sockaddr_storage broadcast;
     };
     class Proxy {
     public:

@@ -1,7 +1,6 @@
 PROJECT(mrpc)
 
 add_library(mrpc SHARED
-    mrpc
     proxy
     node
     transport
@@ -11,6 +10,7 @@ add_library(mrpc SHARED
     service
     path
     uuid
+    result
 )
 target_include_directories (mrpc PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
