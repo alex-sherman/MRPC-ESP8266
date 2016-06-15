@@ -7,7 +7,7 @@
 
 using namespace MRPC;
 
-Json::Value who_has(Json::Value args, Json::Value kwargs) {
+Json::Value who_has(Service *self, Json::Value args, Json::Value kwargs) {
     Path path = Path(args[0].asString());
     Service *service = Node::Single()->get_service(path);
     if(service)
