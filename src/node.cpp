@@ -8,6 +8,7 @@
 #include "path.h"
 #include "exception.h"
 #include "uuid.h"
+#include <time.h>
 
 using namespace MRPC;
 Node *Node::_single = new Node();
@@ -60,6 +61,20 @@ void Node::on_recv(Message msg) {
     }
 }
 
+Result *Node::rpc(std::string path, std::string procedure, Json::Value value) {
+    int id = this->id++;
+    Message msg = Message::Create(id, guid.hex, path);
+    msg["procedure"] = procedure;
+    msg["value"] = value;
+    Result *result = new Result();
+    results[id] = result;
+    for(int i = 0; i < transports.size(); i++)
+    {
+        transports[i]->send(msg);
+    }
+    return result;
+}
+
 Service *Node::get_service(Path path) {
     std::map<std::string, Service*>::iterator it;
     it = services.find(path.service);
@@ -70,8 +85,13 @@ Service *Node::get_service(Path path) {
 
 bool Node::poll() {
     bool output = false;
+    uint64_t time = std::time(nullptr);
     for(int i = 0; i < transports.size(); i++) {
         output |= transports[i]->poll();
+    }
+    for (auto const& it : services)
+    {
+        it.second->update(time);
     }
     return output;
 }

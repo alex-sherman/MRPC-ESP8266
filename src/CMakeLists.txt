@@ -1,6 +1,7 @@
 PROJECT(mrpc)
 
 add_library(mrpc SHARED
+    mrpc
     proxy
     node
     transport

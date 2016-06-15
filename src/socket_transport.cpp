@@ -7,6 +7,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <iostream>
+#include "exception.h"
 
 using namespace MRPC;
 
@@ -40,7 +41,10 @@ void SocketTransport::send(Message msg) {
         std::string str = writer.write(msg);
         size_t len = str.length();
         int result = sendto(sock, str.c_str(), len, 0, (struct sockaddr *)dst, sizeof(sockaddr_storage));
+        return;
     }
+    //throw InvalidPath("Failed to send to destination " + msg["dst"].asString());
+
 }
 
 Message SocketTransport::recv() {
@@ -49,15 +53,13 @@ Message SocketTransport::recv() {
     uint from_size;
     Message output;
 
-    while(1) {
-        from_size = sizeof(from);
-        int recvd = recvfrom(this->sock, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&from, &from_size);
-        if(recvd > 0) {
-            output = Message::FromString(buffer, recvd);
-            if(output.is_valid())
-                known_guids[output["src"].asString()] = from;
-            return output;
-        }
+    from_size = sizeof(from);
+    int recvd = recvfrom(this->sock, buffer, sizeof(buffer), MSG_DONTWAIT, (struct sockaddr *)&from, &from_size);
+    if(recvd > 0) {
+        output = Message::FromString(buffer, recvd);
+        if(output.is_valid())
+            known_guids[output["src"].asString()] = from;
+        return output;
     }
     return output;
 }

@@ -15,6 +15,7 @@ namespace MRPC {
         }
     };
     class NoReturn : public MRPCError { using MRPCError::MRPCError; };
+    class InvalidPath : public MRPCError { using MRPCError::MRPCError; };
 }
 
 #endif

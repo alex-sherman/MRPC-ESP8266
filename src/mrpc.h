@@ -15,10 +15,17 @@
 
 namespace MRPC {
 
+
     class Transport;
     class Service;
     class Routing;
     class UUID;
+    class Result {
+    public:
+        Result() { };
+    };
+
+    //Result *rpc(std::string path, std::string procedure, )
 
     class Node {
     public:
@@ -29,13 +36,16 @@ namespace MRPC {
         void register_service(std::string path, Service *service);
         Service *get_service(Path path);
         void on_recv(Message msg);
+        Result *rpc(std::string, std::string, Json::Value);
         void wait();
         bool poll();
     private:
+        int id = 0;
         Routing *routing;
         static Node *_single;
         std::vector<MRPC::Transport*> transports;
         std::map<std::string, Service*> services;
+        std::map<int, Result*> results;
     };
     class Transport {
     public:

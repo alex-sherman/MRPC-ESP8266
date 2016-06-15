@@ -1,13 +1,19 @@
 #include "mrpc.h"
 #include "service.h"
+#include <iostream>
 
 using namespace MRPC;
 
 Json::Value get_publications(Service *self, Json::Value args, Json::Value kwargs) {
-    Json::Value out = Json::Value(Json::ValueType::arrayValue);
-    Json::Value::Members members = self->storage["publications"].getMemberNames();
-    for(int i = 0; i < members.size(); i++) {
-        out.append(members[i]);
+    Json::Value out = Json::Value(Json::ValueType::objectValue);
+    for (auto const& it : self->publishers)
+    {
+        Json::Value publisher = Json::Value(Json::ValueType::objectValue);
+        publisher["interval"] = it.second->interval;
+        publisher["procedure"] = it.second->procedure;
+        publisher["path"] = it.second->path;
+        out[it.first] = publisher;
+
     }
     return out;
 }
@@ -28,11 +34,24 @@ ServiceMethod Service::get_method(std::string str) {
     return methods[str];
 }
 
-void Service::add_publisher(std::string name, PublisherMethod method, std::string path) {
-    publishers[name] = Publisher(method, path, name);
+void Service::add_publisher(std::string name, PublisherMethod method, std::string path, int interval) {
+    publishers[name] = new Publisher(method, path, name, interval);
 }
 
-Publisher::Publisher(PublisherMethod method, std::string path, std::string procedure, int interval) {
+void Service::update(uint64_t time) {
+    for (auto const& it : publishers)
+    {
+        Publisher *publisher = it.second;
+        if(publisher->interval == 0) continue;
+        if(time - publisher->last_called > publisher->interval) {
+            publisher->last_called = time;
+            Node::Single()->rpc(publisher->path, publisher->procedure, publisher->method());
+            std::cout << publisher->method() << "\n";
+        }
+    }
+}
+
+Publisher::Publisher(PublisherMethod method, std::string path, std::string procedure, uint interval) {
     this->method = method;
     this->path = path;
     this->procedure = procedure;

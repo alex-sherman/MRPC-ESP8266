@@ -23,7 +23,7 @@ int main() {
     Node *self = Node::Single();
     Service simpleService = Service();
     simpleService.add_method("echo", &echo);
-    simpleService.add_publisher("temperature", &temperature, "/LivingRoom");
+    simpleService.add_publisher("temperature", &temperature, "/LivingRoom", 1);
     self->register_service("/SimpleService", &simpleService);
     Service otherService = Service();
     otherService.add_method("echo", &echo1);
