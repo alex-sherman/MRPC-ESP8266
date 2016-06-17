@@ -8,3 +8,6 @@ UUID::UUID() {
 UUID::UUID(std::string hex) {
     this->hex = hex;
 }
+bool UUID::is(std::string hex) {
+    return hex.length() == 32;
+}

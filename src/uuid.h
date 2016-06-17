@@ -6,6 +6,7 @@
 namespace MRPC {
     class UUID {
     public:
+        static bool is(std::string test);
         UUID(std::string hex);
         UUID();
         std::string hex;

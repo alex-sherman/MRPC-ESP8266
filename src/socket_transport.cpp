@@ -45,25 +45,35 @@ void sendmsg(int sock, Message msg, struct sockaddr_storage *dst) {
     int result = sendto(sock, str.c_str(), len, 0, (struct sockaddr *)dst, sizeof(sockaddr_storage));
 }
 
+struct sockaddr_storage *SocketTransport::guid_lookup(std::string hex) {
+    std::map<std::string, sockaddr_storage>::iterator it;
+    it = known_guids.find(hex);
+    if(it != known_guids.end()) {
+        return &it->second;
+    }
+    return nullptr;
+}
+
 void SocketTransport::send(Message msg) {
     struct sockaddr_storage *dst = NULL;
     Path dst_path = Path(msg["dst"].asString());
-    std::cout << dst_path.is_broadcast << "\n";
     if(dst_path.is_broadcast) {
         dst = &broadcast;
     }
     else {
-        std::map<std::string, sockaddr_storage>::iterator it;
-        it = known_guids.find(msg["dst"].asString());
-        if(it != known_guids.end()) {
-            dst = &it->second;
-        }
+        dst = guid_lookup(msg["dst"].asString());
     }
     if(dst) {
         sendmsg(sock, msg, dst);
     }
     else {
         Result *result = Node::Single()->rpc("*/Routing", "who_has", msg["dst"]);
+        result->when([=] (Json::Value value, bool success) {
+            if(value.isString() && UUID::is(value.asString())) {
+                struct sockaddr_storage *_dst = guid_lookup(value.asString());
+                sendmsg(sock, msg, _dst);
+            }
+        });
     }
 
     //throw InvalidPath("Failed to send to destination " + msg["dst"].asString());

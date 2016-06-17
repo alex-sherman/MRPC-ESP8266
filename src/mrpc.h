@@ -12,6 +12,7 @@
 #include "routing.h"
 #include "path.h"
 #include "uuid.h"
+#include <functional>
 
 namespace MRPC {
 
@@ -21,15 +22,17 @@ namespace MRPC {
     class Routing;
     class UUID;
     class Result {
-        typedef void (*Callback)(Json::Value);
+        typedef std::function<void(Json::Value, bool)> Callback;
         
     public:
         Result() { }
-        void resolve(Json::Value, bool failure);
+        void resolve(Json::Value, bool success);
         void when(Callback callback);
         std::vector<Callback> callbacks;
         bool completed;
-        bool failure;
+        bool success;
+    private:
+        Json::Value value;
     };
 
     //Result *rpc(std::string path, std::string procedure, )
@@ -73,6 +76,7 @@ namespace MRPC {
         Message recv();
         int sock;
         struct sockaddr_storage broadcast;
+        struct sockaddr_storage *guid_lookup(std::string hex);
     };
     class Proxy {
     public:
