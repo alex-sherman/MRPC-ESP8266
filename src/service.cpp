@@ -45,8 +45,7 @@ void Service::update(uint64_t time) {
         if(publisher->interval == 0) continue;
         if(time - publisher->last_called > publisher->interval) {
             publisher->last_called = time;
-            Node::Single()->rpc(publisher->path, publisher->procedure, publisher->method());
-            std::cout << publisher->method() << "\n";
+            Node::Single()->rpc(publisher->path, publisher->procedure, publisher->method(this));
         }
     }
 }

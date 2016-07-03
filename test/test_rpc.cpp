@@ -14,7 +14,7 @@ Json::Value echo1(Service *service, Json::Value value) {
     return "HERP" + value.asString() + "DERP";
 }
 
-Json::Value temperature() {
+Json::Value temperature(Service *self) {
     return 75;
 }
 

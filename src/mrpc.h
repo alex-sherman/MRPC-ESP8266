@@ -47,6 +47,7 @@ namespace MRPC {
         Service *get_service(Path path);
         void on_recv(Message msg);
         Result *rpc(std::string, std::string, Json::Value);
+        std::map<std::string, Service*> services;
         void wait();
         bool poll();
     private:
@@ -54,7 +55,6 @@ namespace MRPC {
         Routing *routing;
         static Node *_single;
         std::vector<MRPC::Transport*> transports;
-        std::map<std::string, Service*> services;
         std::map<int, Result*> results;
     };
     class Transport {
