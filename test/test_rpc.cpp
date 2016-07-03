@@ -3,15 +3,15 @@
 
 using namespace MRPC;
 
-Json::Value echo(Service *service, Json::Value args, Json::Value kwargs) {
+Json::Value echo(Service *service, Json::Value value) {
     std::cout << service->storage << "\n";
-    service->storage["herp"] = args[0];
-    std::cout << args[0].asString() << "\n";
-    return args[0];
+    service->storage["herp"] = value;
+    std::cout << value.asString() << "\n";
+    return value;
 }
-Json::Value echo1(Service *service, Json::Value args, Json::Value kwargs) {
-    std::cout << args[0].asString() << "\n";
-    return "HERP" + args[0].asString() + "DERP";
+Json::Value echo1(Service *service, Json::Value value) {
+    std::cout << value.asString() << "\n";
+    return "HERP" + value.asString() + "DERP";
 }
 
 Json::Value temperature() {

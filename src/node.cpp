@@ -44,7 +44,7 @@ void Node::on_recv(Message msg) {
                 else
                     response = Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString());
                 try {
-                    Json::Value result = method(service, msg["args"], msg["kwargs"]);
+                    Json::Value result = method(service, msg["value"]);
                     response["result"] = result;
                 }
                 catch(NoReturn &e) {

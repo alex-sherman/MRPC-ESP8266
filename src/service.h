@@ -6,7 +6,7 @@
 namespace MRPC {
 
     class Service;
-    typedef Json::Value (*ServiceMethod)(Service*, Json::Value, Json::Value);
+    typedef Json::Value (*ServiceMethod)(Service*, Json::Value);
     typedef Json::Value (*PublisherMethod)(void);
 
     class Publisher {

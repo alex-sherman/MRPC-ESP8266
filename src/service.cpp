@@ -4,7 +4,7 @@
 
 using namespace MRPC;
 
-Json::Value get_publications(Service *self, Json::Value args, Json::Value kwargs) {
+Json::Value get_publications(Service *self, Json::Value value) {
     Json::Value out = Json::Value(Json::ValueType::objectValue);
     for (auto const& it : self->publishers)
     {
@@ -17,8 +17,8 @@ Json::Value get_publications(Service *self, Json::Value args, Json::Value kwargs
     }
     return out;
 }
-Json::Value set_publication(Service *self, Json::Value args, Json::Value kwargs) {
-    return self->storage["publications"][args[0].asString()] = args[1];
+Json::Value set_publication(Service *self, Json::Value value) {
+    return self->storage["publications"][value["name"].asString()] = value["value"];
 }
 
 Service::Service() {
