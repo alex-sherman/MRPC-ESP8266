@@ -1,47 +1,30 @@
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
-#include <json/json.h>
-#include <iostream>
 #include "mrpc.h"
 #include "message.h"
 
 using namespace MRPC;
 
-Message Message::Create(int id, std::string src, std::string dst) {
-    Message msg = Create(src, dst);
+JsonObject& Message::Create(int id, const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer) {
+    JsonObject& msg = Create(src, dst, messageBuffer);
     msg["id"] = id;
     return msg;
 }
-Message Message::Create(std::string src, std::string dst) {
-    Message msg = Message();
+JsonObject& Message::Create(const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer) {
+    JsonObject& msg = messageBuffer->createObject();
     msg["src"] = src;
     msg["dst"] = dst;
     return msg;
 }
 
-Message Message::FromString(char *str, size_t size) {
-    Message msg;
-    Json::Reader reader;
-    bool parsingSuccessful = reader.parse( str, msg );
-    if ( !parsingSuccessful )
-    {
-        // report to the user the failure and their locations in the document.
-        std::cout  << "Failed to parse configuration\n"
-                   << reader.getFormattedErrorMessages();
-    }
-    return msg;
+bool Message::is_valid(JsonObject& msg) {
+    if(!msg.success()) return false;
+    return msg.get<const char *>("src") != NULL && msg.get<const char *>("dst") != NULL && (Message::is_response(msg) || Message::is_request(msg));
 }
 
-bool Message::is_valid() {
-    if(!isObject())
-        return false;
-    return isMember("src") && isMember("dst") && (is_response() || is_request());
+bool Message::is_response(JsonObject& msg) {
+    return msg.get<const char *>("id") != NULL && (msg.get<const char *>("result") != NULL || msg.get<const char *>("error") != NULL);
 }
-
-bool Message::is_response() {
-    return isMember("id") && (isMember("result") || isMember("error"));
-}
-bool Message::is_request() {
-    return isMember("procedure");
+bool Message::is_request(JsonObject& msg) {
+    return msg.get<const char *>("procedure") != NULL;
 }

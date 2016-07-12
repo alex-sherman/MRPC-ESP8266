@@ -1,14 +1,21 @@
 #include "mrpc.h"
-#include <iostream>
+#include <string.h>
+#include <Arduino.h>
 
 using namespace MRPC;
 
 bool Transport::poll() {
-    Message msg = recv();
-
-    if(!msg)
+    StaticJsonBuffer<2048> jsonBuffer;
+    char buffer[1024];
+    if(!recv(buffer)) return false;
+    Serial.println(buffer);
+    JsonObject& msg = jsonBuffer.parseObject(buffer);
+    if(!Message::is_valid(msg))
         return false;
-    if(msg.is_valid() && msg["src"].asString().compare(Node::Single()->guid.hex))
-        Node::Single()->on_recv(msg);
+    Serial.println("Got message");
+    msg.printTo(Serial);
+    Serial.println();
+    if(strcmp(msg["src"].as<const char*>(), node->guid.hex))
+        node->on_recv(msg, &jsonBuffer);
     return true;
 }

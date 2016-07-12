@@ -1,12 +1,15 @@
 #include "path.h"
+#include <stdlib.h>
+#include <string.h>
 
 using namespace MRPC;
 
-Path::Path(std::string path) {
-    is_broadcast = path.at(0) == '*';
+Path::Path(const char* path) {
+    is_broadcast = path[0] == '*';
+    int path_len = strlen(path);
     if(is_broadcast)
-        service = path.substr(1, path.length());
+        memcpy(service, path + 1, path_len);
     else
-        service = path.substr(0, path.length());
-    this->path = path.substr(0, path.length());
+        memcpy(service, path, path_len + 1);
+    memcpy(this->path, path, path_len + 1);
 }

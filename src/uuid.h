@@ -1,15 +1,13 @@
 #ifndef _MRPC_UUID_H_
 #define _MRPC_UUID_H_
 
-#include <string>
-
 namespace MRPC {
     class UUID {
     public:
-        static bool is(std::string test);
-        UUID(std::string hex);
+        static bool is(const char* test);
+        UUID(const char* hex);
         UUID();
-        std::string hex;
+        const char* hex;
     };
 }
 

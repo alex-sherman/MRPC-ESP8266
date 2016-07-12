@@ -1,27 +1,24 @@
-#include <json/json.h>
 #include "service.h"
-#include <iostream>
 #include "mrpc.h"
 #include "routing.h"
-#include "exception.h"
 
 using namespace MRPC;
 
-Json::Value who_has(Service *self, Json::Value value) {
-    Path path = Path(value.asString());
-    Service *service = Node::Single()->get_service(path);
+JsonVariant who_has(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+    Path path = Path(value.as<const char*>());
+    Service *service = self->node->get_service(path);
     if(service)
-        return Node::Single()->guid.hex;
-    throw NoReturn("No method " + path.service + " could be found");
+        return self->node->guid.hex;
+    success = false;
 }
-Json::Value list_procedures(Service *self, Json::Value value) {
-    Json::Value out = Json::Value();
-    for (auto const& service_it : Node::Single()->services)
+JsonVariant list_procedures(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+    JsonObject& out = messageBuffer->createObject();
+    for (auto const& service_it : self->node->services)
     {
-        Json::Value service = Json::Value(Json::ValueType::arrayValue);
+        JsonArray& service = messageBuffer->createArray();
         for (auto const& method : service_it.second->methods)
         {
-            service.append(method.first);
+            service.add(method.first);
         }
         out[service_it.first] = service;
     }

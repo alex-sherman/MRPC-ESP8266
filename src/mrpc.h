@@ -1,12 +1,11 @@
 #ifndef _MRPC_H_
 #define _MRPC_H_
+#define ARDUINO
 
 #include <stdlib.h>
-#include <sys/socket.h>
-#include <stdint.h>
 #include <string.h>
-#include <json/json.h>
-#include <thread>
+#include <ArduinoJson.h>
+#include <WiFiUDP.h>
 #include "message.h"
 #include "service.h"
 #include "routing.h"
@@ -14,40 +13,39 @@
 #include "uuid.h"
 #include <functional>
 
+#ifdef ARDUINO
+    #include <vector>
+    #include <map>
+#endif
 namespace MRPC {
-
-
     class Transport;
     class Service;
     class Routing;
     class UUID;
     class Result {
-        typedef std::function<void(Json::Value, bool)> Callback;
+        typedef std::function<void(JsonVariant, bool)> Callback;
         
     public:
         Result() { }
-        void resolve(Json::Value, bool success);
+        void resolve(JsonObject&, bool success);
         void when(Callback callback);
         std::vector<Callback> callbacks;
         bool completed;
         bool success;
-    private:
-        Json::Value value;
     };
 
     //Result *rpc(std::string path, std::string procedure, )
 
     class Node {
     public:
-        static Node *Single();
         Node();
         UUID guid;
         void use_transport(Transport *transport);
-        void register_service(std::string path, Service *service);
+        void register_service(const char* path, Service *service);
         Service *get_service(Path path);
-        void on_recv(Message msg);
-        Result *rpc(std::string, std::string, Json::Value);
-        std::map<std::string, Service*> services;
+        void on_recv(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
+        Result *rpc(const char*, const char*, JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
+        std::map<const char*, Service*> services;
         void wait();
         bool poll();
     private:
@@ -59,33 +57,29 @@ namespace MRPC {
     };
     class Transport {
     public:
+        Node *node;
         bool poll();
         void close();
-        virtual void send(Message message) = 0;
-    private:
-        virtual Message recv() = 0;
-        std::thread recv_thread;
+        virtual void send(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer) = 0;
+        virtual bool recv(char buffer[1024]) = 0;
     };
-    class SocketTransport : public Transport {
+    struct UDPEndpoint {
+        IPAddress ip;
+        uint16_t port;
+    };
+    class UDPTransport : public Transport {
     public:
-        SocketTransport();
-        SocketTransport(int local_port);
-        void send(Message message);
+        UDPTransport();
+        UDPTransport(int local_port);
+        void send(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
+        bool recv(char buffer[1024]);
+        struct UDPEndpoint *guid_lookup(const char *hex);
     private:
-        std::map<std::string, sockaddr_storage> known_guids;
-        Message recv();
-        int sock;
-        struct sockaddr_storage broadcast;
-        struct sockaddr_storage *guid_lookup(std::string hex);
+        struct UDPEndpoint broadcast;
+        std::map<const char*, struct UDPEndpoint> known_guids;
+        WiFiUDP udp;
+        uint16_t remote_port;
     };
-    class Proxy {
-    public:
-        Proxy(std::string host);
-        struct sockaddr_storage remote;
-        int sockfd;
-        int next_id;
-    };
-    
 }
 
 #endif //_MRPC_H_
