@@ -26,28 +26,29 @@ void Node::register_service(const char* path, Service *service) {
     Serial.println(path);
 }
 
-void Node::on_recv(JsonObject& msg, StaticJsonBuffer<2048>* jsonBuffer) {
+void Node::on_recv(aJsonObject &msg) {
     if(Message::is_request(msg)) {
         Serial.println("Received a request");
-        Path path = Path(msg["dst"].asString());
+        Path path = Path(msg.get("dst").valuestring);
         Service *service = get_service(path);
         if(service) {
             Serial.print("Finding method: ");
-            Serial.println(msg.get<const char*>("procedure"));
-            ServiceMethod method = service->get_method(msg["procedure"].as<const char*>());
+            msg.get("procedure").printTo(Serial);
+            ServiceMethod method = service->get_method(msg.get("procedure").valuestring);
             if(method) {
                 Serial.println("Have method");
-                JsonObject& response = 
-                    msg.get("id").is<int>() ? 
-                        Message::Create(msg.get("id").as<int>(), guid.hex, msg.get("src").as<const char*>(), jsonBuffer) :
-                        Message::Create(guid.hex, msg.get("src").as<const char*>(), jsonBuffer);
-                const JsonVariant& msg_value = msg["value"];
+                aJsonObject & response = 
+                    msg.get("id").type == aJson_Int ? 
+                        Message::Create(msg.get("id").valueint, guid.hex, msg.get("src").valuestring) :
+                        Message::Create(guid.hex, msg.get("src").valuestring);
+                aJsonObject & msg_value = msg.get("value");
                 bool success = true;
-                JsonVariant response_value = method(service, msg_value, jsonBuffer, success);
-                response["result"] = response_value;
+                aJsonObject *response_value = (aJsonObject *)malloc(sizeof(aJsonObject));
+                *response_value = method(service, msg_value, success);
+                response.set("result", *response_value);
                 if(success) {
                     for(int i = 0; i < transports.size(); i++) {
-                        transports[i]->send(response, jsonBuffer);
+                        transports[i]->send(response);
                     }
                 }
             }
@@ -55,25 +56,25 @@ void Node::on_recv(JsonObject& msg, StaticJsonBuffer<2048>* jsonBuffer) {
     }
     else if(Message::is_response(msg)) {
         Serial.println("Received a response");
-        Result *result = results[msg["id"].as<int>()];
+        Result *result = results[msg["id"].valueint];
         if(result) {
-            bool failure = !msg["result"];
+            bool failure = msg["result"].empty;
             result->resolve(failure ? msg["error"] : msg["result"], failure);
         }
     }
 }
 
-Result *Node::rpc(const char* path, const char* procedure, JsonObject& value, StaticJsonBuffer<2048>* jsonBuffer) {
+Result *Node::rpc(const char* path, const char* procedure, aJsonObject &value) {
     Serial.println("Node::RPC()");
     int id = this->id++;
-    JsonObject& msg = Message::Create(id, guid.hex, path, jsonBuffer);
-    msg["procedure"] = procedure;
-    msg["value"] = value;
+    aJsonObject &msg = Message::Create(id, guid.hex, path);
+    msg.set("procedure", procedure);
+    msg.set("value", value);
     Result *result = new Result();
     results[id] = result;
     for(int i = 0; i < transports.size(); i++)
     {
-        transports[i]->send(msg, jsonBuffer);
+        transports[i]->send(msg);
     }
     return result;
 }

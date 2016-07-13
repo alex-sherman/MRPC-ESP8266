@@ -1,18 +1,18 @@
 #ifndef _MRPC_MESSAGE_H_
 #define _MRPC_MESSAGE_H_
 
-#include <ArduinoJson.h>
+#include <aJSON.h>
 
 namespace MRPC {
 
     class Message {
     public:
-        static JsonObject& Create(int id, const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer);
-        static JsonObject& Create(const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer);
-        static JsonObject& FromString(char *str, size_t size, StaticJsonBuffer<2048>* messageBuffer);
-        static bool is_request(JsonObject&);
-        static bool is_response(JsonObject&);
-        static bool is_valid(JsonObject&);
+        static aJsonObject & Create(int id, const char* src, const char* dst);
+        static aJsonObject & Create(const char* src, const char* dst);
+        static aJsonObject & FromString(char *str, size_t size);
+        static bool is_request(aJsonObject &);
+        static bool is_response(aJsonObject &);
+        static bool is_valid(aJsonObject &);
 
     };
 }

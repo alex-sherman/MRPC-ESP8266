@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ArduinoJson.h>
 #include <Arduino.h>
+#include <map>
 
 using namespace MRPC;
 
@@ -12,7 +13,6 @@ UDPTransport::UDPTransport()
 
 UDPTransport::UDPTransport(int local_port) {
     udp.begin(local_port);
-    known_guids = std::map<const char*, struct UDPEndpoint>();
     remote_port = local_port;
     broadcast.ip = IPAddress(255, 255, 255, 0);
     broadcast.port = remote_port;
@@ -29,15 +29,6 @@ void sendmsg(WiFiUDP *udp, const JsonObject& msg, struct UDPEndpoint *address) {
     Serial.println("UDP Send end");
 }
 
-struct UDPEndpoint *UDPTransport::guid_lookup(const char *hex) {
-    std::map<const char*, struct UDPEndpoint>::iterator it;
-    it = known_guids.find(hex);
-    if(it != known_guids.end()) {
-        return &it->second;
-    }
-    return nullptr;
-}
-
 void UDPTransport::send(JsonObject& msg, StaticJsonBuffer<2048>* jsonBuffer) {
     Serial.println("Sent a message");
     struct UDPEndpoint *dst = NULL;
@@ -46,7 +37,7 @@ void UDPTransport::send(JsonObject& msg, StaticJsonBuffer<2048>* jsonBuffer) {
         dst = &broadcast;
     }
     else {
-        dst = guid_lookup(msg["dst"].asString());
+        dst = known_guids.get(msg["dst"].asString());
     }
     if(dst) {
         sendmsg(&udp, msg, dst);
@@ -59,7 +50,7 @@ void UDPTransport::send(JsonObject& msg, StaticJsonBuffer<2048>* jsonBuffer) {
         result->when([=] (JsonVariant value, bool success) {
             Serial.println("Got a routing response");
             if(value.is<const char*>() && UUID::is(value.as<const char*>())) {
-                struct UDPEndpoint *_dst = guid_lookup(value.as<const char*>());
+                struct UDPEndpoint *_dst = known_guids.get(value.as<const char*>());
                 sendmsg(&udp, *(JsonObject*)((uint8_t *)&buffer_copy)[offset], _dst);
             }
         });
@@ -70,11 +61,19 @@ bool UDPTransport::recv(char buffer[1024]) {
     int cb = udp.parsePacket();
     if(cb > 0) {
         udp.read(buffer, 1023);
+        buffer[cb + 1] = 0;
         StaticJsonBuffer<1024> jsonBuffer;
         JsonObject& output = jsonBuffer.parseObject(buffer);
+        Serial.println("Parsed message");
+        output.printTo(Serial);
+
         if(Message::is_valid(output)) {
+            Serial.println("Message valid");
+            Serial.println(output["src"].as<const char*>());
             struct UDPEndpoint remote = {udp.remoteIP(), udp.remotePort()};
-            known_guids[output["src"].as<const char*>()] = remote;
+            Serial.println("HERP");
+            known_guids.set(output["src"].as<const char*>(), remote);
+            Serial.println("Returning");
             return true;
         }
     }

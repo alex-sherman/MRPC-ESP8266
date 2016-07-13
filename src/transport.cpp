@@ -5,8 +5,8 @@
 using namespace MRPC;
 
 bool Transport::poll() {
-    StaticJsonBuffer<2048> jsonBuffer;
     char buffer[1024];
+    buffer[1023] = 0;
     if(!recv(buffer)) return false;
     Serial.println(buffer);
     JsonObject& msg = jsonBuffer.parseObject(buffer);

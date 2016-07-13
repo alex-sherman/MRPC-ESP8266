@@ -4,13 +4,14 @@
 
 #include <stdlib.h>
 #include <string.h>
-#include <ArduinoJson.h>
+#include <aJSON.h>
 #include <WiFiUDP.h>
 #include "message.h"
 #include "service.h"
 #include "routing.h"
 #include "path.h"
 #include "uuid.h"
+#include "amap.h"
 #include <functional>
 
 #ifdef ARDUINO
@@ -23,11 +24,11 @@ namespace MRPC {
     class Routing;
     class UUID;
     class Result {
-        typedef std::function<void(JsonVariant, bool)> Callback;
+        typedef std::function<void(aJsonObject &, bool)> Callback;
         
     public:
         Result() { }
-        void resolve(JsonObject&, bool success);
+        void resolve(aJsonObject &, bool success);
         void when(Callback callback);
         std::vector<Callback> callbacks;
         bool completed;
@@ -43,8 +44,8 @@ namespace MRPC {
         void use_transport(Transport *transport);
         void register_service(const char* path, Service *service);
         Service *get_service(Path path);
-        void on_recv(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
-        Result *rpc(const char*, const char*, JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
+        void on_recv(aJsonObject &);
+        Result *rpc(const char*, const char*, aJsonObject &);
         std::map<const char*, Service*> services;
         void wait();
         bool poll();
@@ -60,7 +61,7 @@ namespace MRPC {
         Node *node;
         bool poll();
         void close();
-        virtual void send(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer) = 0;
+        virtual void send(aJsonObject &) = 0;
         virtual bool recv(char buffer[1024]) = 0;
     };
     struct UDPEndpoint {
@@ -71,12 +72,12 @@ namespace MRPC {
     public:
         UDPTransport();
         UDPTransport(int local_port);
-        void send(JsonObject&, StaticJsonBuffer<2048>* jsonBuffer);
+        void send(aJsonObject &);
         bool recv(char buffer[1024]);
         struct UDPEndpoint *guid_lookup(const char *hex);
     private:
         struct UDPEndpoint broadcast;
-        std::map<const char*, struct UDPEndpoint> known_guids;
+        amap<struct UDPEndpoint> known_guids;
         WiFiUDP udp;
         uint16_t remote_port;
     };

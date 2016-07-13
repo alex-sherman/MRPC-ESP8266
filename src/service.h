@@ -4,15 +4,15 @@
 #ifdef ARDUINO
     #include <vector>
     #include <map>
-    #include <ArduinoJson.h>
+    #include <aJSON.h>
 #endif
 
 namespace MRPC {
 
     class Node;
     class Service;
-    typedef JsonVariant (*ServiceMethod)(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success);
-    typedef JsonVariant (*PublisherMethod)(Service*, StaticJsonBuffer<2048>*);
+    typedef aJsonObject (*ServiceMethod)(Service* self, aJsonObject &value, bool& success);
+    typedef aJsonObject (*PublisherMethod)(Service*);
 
     class Publisher {
     public:
@@ -38,7 +38,7 @@ namespace MRPC {
         std::map<const char*, Publisher*> publishers;
         std::map<const char*, ServiceMethod> methods;
     private:
-        JsonObject* storage;
+        aJsonObject* storage;
     };
 }
 

@@ -4,14 +4,14 @@
 
 using namespace MRPC;
 
-JsonVariant who_has(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+aJsonObject who_has(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
     Path path = Path(value.as<const char*>());
     Service *service = self->node->get_service(path);
     if(service)
         return self->node->guid.hex;
     success = false;
 }
-JsonVariant list_procedures(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+aJsonObject list_procedures(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
     JsonObject& out = messageBuffer->createObject();
     for (auto const& service_it : self->node->services)
     {

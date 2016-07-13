@@ -5,26 +5,26 @@
 
 using namespace MRPC;
 
-JsonObject& Message::Create(int id, const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer) {
-    JsonObject& msg = Create(src, dst, messageBuffer);
-    msg["id"] = id;
+aJsonObject &Message::Create(int id, const char* src, const char* dst) {
+    aJsonObject &msg = Create(src, dst);
+    msg.set("id", id);
     return msg;
 }
-JsonObject& Message::Create(const char* src, const char* dst, StaticJsonBuffer<2048>* messageBuffer) {
-    JsonObject& msg = messageBuffer->createObject();
-    msg["src"] = src;
-    msg["dst"] = dst;
+aJsonObject &Message::Create(const char* src, const char* dst) {
+    aJsonObject &msg = *aJson.createObject();
+    msg.set("src", src);
+    msg.set("dst", dst);
     return msg;
 }
 
-bool Message::is_valid(JsonObject& msg) {
-    if(!msg.success()) return false;
-    return msg.get<const char *>("src") != NULL && msg.get<const char *>("dst") != NULL && (Message::is_response(msg) || Message::is_request(msg));
+bool Message::is_valid(aJsonObject & msg) {
+    if(msg.isNull()) return false;
+    return !msg["src"].isNull() && !msg["dst"].isNull() && (Message::is_response(msg) || Message::is_request(msg));
 }
 
-bool Message::is_response(JsonObject& msg) {
-    return msg.get<const char *>("id") != NULL && (msg.get<const char *>("result") != NULL || msg.get<const char *>("error") != NULL);
+bool Message::is_response(aJsonObject & msg) {
+    return !msg["id"].isNull() && (!msg["result"].isNull() || !msg["error"].isNull());
 }
-bool Message::is_request(JsonObject& msg) {
-    return msg.get<const char *>("procedure") != NULL;
+bool Message::is_request(aJsonObject & msg) {
+    return !msg["procedure"].isNull();
 }
