@@ -1,18 +1,14 @@
 #ifndef _MRPC_SERVICE_H_
 #define _MRPC_SERVICE_H_
 
-#ifdef ARDUINO
-    #include <vector>
-    #include <map>
-    #include <aJSON.h>
-#endif
+#include <json.h>
 
 namespace MRPC {
 
     class Node;
     class Service;
-    typedef aJsonObject (*ServiceMethod)(Service* self, aJsonObject &value, bool& success);
-    typedef aJsonObject (*PublisherMethod)(Service*);
+    typedef aJsonObject &(*ServiceMethod)(Service* self, const aJsonObject &value, bool& success);
+    typedef aJsonObject &(*PublisherMethod)(Service*);
 
     class Publisher {
     public:

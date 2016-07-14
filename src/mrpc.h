@@ -1,10 +1,9 @@
 #ifndef _MRPC_H_
 #define _MRPC_H_
-#define ARDUINO
 
 #include <stdlib.h>
 #include <string.h>
-#include <aJSON.h>
+#include <json.h>
 #include <WiFiUDP.h>
 #include "message.h"
 #include "service.h"
@@ -14,10 +13,6 @@
 #include "amap.h"
 #include <functional>
 
-#ifdef ARDUINO
-    #include <vector>
-    #include <map>
-#endif
 namespace MRPC {
     class Transport;
     class Service;

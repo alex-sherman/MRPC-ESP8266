@@ -4,21 +4,21 @@
 
 using namespace MRPC;
 
-aJsonObject who_has(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+aJsonObject &who_has(Service* self, const aJsonObject& value, bool& success) {
     Path path = Path(value.as<const char*>());
     Service *service = self->node->get_service(path);
     if(service)
         return self->node->guid.hex;
     success = false;
 }
-aJsonObject list_procedures(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
-    JsonObject& out = messageBuffer->createObject();
+aJsonObject &list_procedures(Service* self, const aJsonObject& value, bool& success) {
+    aJsonObject& out = *aJson.createObject();
     for (auto const& service_it : self->node->services)
     {
-        JsonArray& service = messageBuffer->createArray();
+        aJsonObject& service = aJson.createArray();
         for (auto const& method : service_it.second->methods)
         {
-            service.add(method.first);
+            service.append(method.first);
         }
         out[service_it.first] = service;
     }

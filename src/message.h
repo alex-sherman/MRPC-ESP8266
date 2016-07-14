@@ -1,18 +1,18 @@
 #ifndef _MRPC_MESSAGE_H_
 #define _MRPC_MESSAGE_H_
 
-#include <aJSON.h>
+#include <json.h>
 
 namespace MRPC {
 
     class Message {
     public:
-        static aJsonObject & Create(int id, const char* src, const char* dst);
-        static aJsonObject & Create(const char* src, const char* dst);
-        static aJsonObject & FromString(char *str, size_t size);
-        static bool is_request(aJsonObject &);
-        static bool is_response(aJsonObject &);
-        static bool is_valid(aJsonObject &);
+        static Json::Object & Create(int id, const char* src, const char* dst);
+        static Json::Object & Create(const char* src, const char* dst);
+        static Json::Object & FromString(char *str, size_t size);
+        static bool is_request(Json::Object &);
+        static bool is_response(Json::Object &);
+        static bool is_valid(Json::Object &);
 
     };
 }
