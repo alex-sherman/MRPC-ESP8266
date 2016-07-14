@@ -5,17 +5,16 @@
 using namespace MRPC;
 
 bool Transport::poll() {
-    char buffer[1024];
-    buffer[1023] = 0;
-    if(!recv(buffer)) return false;
-    Serial.println(buffer);
-    JsonObject& msg = jsonBuffer.parseObject(buffer);
+    bool ret = true;
+    Json::Object msg = recv();
     if(!Message::is_valid(msg))
-        return false;
-    Serial.println("Got message");
-    msg.printTo(Serial);
-    Serial.println();
-    if(strcmp(msg["src"].as<const char*>(), node->guid.hex))
-        node->on_recv(msg, &jsonBuffer);
-    return true;
+        ret = false;
+    else {
+        Serial.println("Got message");
+        Json::print(msg, Serial);
+        Serial.println();
+        if(strcmp(msg["src"].asString(), node->guid.hex))
+            node->on_recv(msg);
+    }
+    return ret;
 }

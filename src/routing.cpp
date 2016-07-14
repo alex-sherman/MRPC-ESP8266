@@ -4,23 +4,23 @@
 
 using namespace MRPC;
 
-aJsonObject &who_has(Service* self, const aJsonObject& value, bool& success) {
-    Path path = Path(value.as<const char*>());
+Json::Value who_has(Service* self, Json::Value& value, bool& success) {
+    Path path = Path(value.asString());
     Service *service = self->node->get_service(path);
     if(service)
         return self->node->guid.hex;
     success = false;
 }
-aJsonObject &list_procedures(Service* self, const aJsonObject& value, bool& success) {
-    aJsonObject& out = *aJson.createObject();
+Json::Value list_procedures(Service* self, Json::Value& value, bool& success) {
+    Json::Object out;
     for (auto const& service_it : self->node->services)
     {
-        aJsonObject& service = aJson.createArray();
-        for (auto const& method : service_it.second->methods)
+        Json::Array service;
+        for (auto const& method : service_it.value->methods)
         {
-            service.append(method.first);
+            service.append(method.key);
         }
-        out[service_it.first] = service;
+        out[service_it.key] = service;
     }
     return out;
 }

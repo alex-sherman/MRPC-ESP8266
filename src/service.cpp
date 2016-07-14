@@ -4,8 +4,8 @@
 
 using namespace MRPC;
 
-JsonVariant get_publications(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
-    JsonObject& out = messageBuffer->createObject();
+Json::Value get_publications(Service* self, Json::Value& value, bool& success) {
+    /*JsonObject out = *(new Json::Object());
     for (auto const& it : self->publishers)
     {
         JsonObject& publisher = out.createNestedObject(it.first);
@@ -14,15 +14,13 @@ JsonVariant get_publications(Service* self, const JsonVariant& value, StaticJson
         publisher["path"] = it.second->path;
 
     }
-    return out;
+    return out;*/
 }
-JsonVariant set_publication(Service* self, const JsonVariant& value, StaticJsonBuffer<2048>* messageBuffer, bool& success) {
+Json::Value set_publication(Service* self, Json::Value& value, bool& success) {
     //return self->storage["publications"][value["name"].asString()] = value["value"];
 }
 
 Service::Service() {
-    publishers = std::map<const char*, Publisher*>();
-    methods = std::map<const char*, ServiceMethod>();
     add_method("get_publications", get_publications);
     add_method("set_publication", set_publication);
 }
@@ -34,10 +32,10 @@ void Service::add_method(const char* str, ServiceMethod method) {
 ServiceMethod Service::get_method(const char* str) {
     for (auto const& it : methods) {
         Serial.print(str);
-        Serial.print(strcmp(str, it.first));
-        Serial.println(it.first);
-        if(strcmp(str, it.first) == 0)
-            return it.second;
+        Serial.print(strcmp(str, it.key));
+        Serial.println(it.key);
+        if(strcmp(str, it.key) == 0)
+            return it.value;
     }
     return NULL;
 }
@@ -47,7 +45,6 @@ void Service::add_publisher(const char* name, PublisherMethod method, const char
 }
 
 void Service::update(uint64_t time) {
-    StaticJsonBuffer<2048> messageBuffer;
     /*for (auto const& it : publishers)
     {
         Publisher *publisher = it.second;

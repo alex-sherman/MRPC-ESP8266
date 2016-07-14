@@ -5,26 +5,27 @@
 
 using namespace MRPC;
 
-aJsonObject &Message::Create(int id, const char* src, const char* dst) {
-    aJsonObject &msg = Create(src, dst);
-    msg.set("id", id);
+using namespace Json;
+
+Json::Object Message::Create(int id, const char* src, const char* dst) {
+    Json::Object msg = Create(src, dst);
+    msg["id"] = Value::from_int(id);
     return msg;
 }
-aJsonObject &Message::Create(const char* src, const char* dst) {
-    aJsonObject &msg = *aJson.createObject();
-    msg.set("src", src);
-    msg.set("dst", dst);
+Json::Object Message::Create(const char* src, const char* dst) {
+    Json::Object msg;
+    msg["src"] = Value::from_string(src);
+    msg["dst"] = Value::from_string(dst);
     return msg;
 }
 
-bool Message::is_valid(aJsonObject & msg) {
-    if(msg.isNull()) return false;
-    return !msg["src"].isNull() && !msg["dst"].isNull() && (Message::is_response(msg) || Message::is_request(msg));
+bool Message::is_valid(Json::Object msg) {
+    return msg["src"].isString() && msg["dst"].isString() && (Message::is_response(msg) || Message::is_request(msg));
 }
 
-bool Message::is_response(aJsonObject & msg) {
-    return !msg["id"].isNull() && (!msg["result"].isNull() || !msg["error"].isNull());
+bool Message::is_response(Json::Object msg) {
+    return msg["id"].isInt() && (msg["result"].isString() || msg["error"].isString());
 }
-bool Message::is_request(aJsonObject & msg) {
-    return !msg["procedure"].isNull();
+bool Message::is_request(Json::Object msg) {
+    return msg["procedure"].isString();
 }

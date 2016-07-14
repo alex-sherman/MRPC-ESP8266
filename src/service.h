@@ -7,8 +7,8 @@ namespace MRPC {
 
     class Node;
     class Service;
-    typedef aJsonObject &(*ServiceMethod)(Service* self, const aJsonObject &value, bool& success);
-    typedef aJsonObject &(*PublisherMethod)(Service*);
+    typedef Json::Value (*ServiceMethod)(Service* self, Json::Value& value, bool& success);
+    typedef Json::Value (*PublisherMethod)(Service*);
 
     class Publisher {
     public:
@@ -31,10 +31,10 @@ namespace MRPC {
         ServiceMethod get_method(const char*);
         void add_publisher(const char* name, PublisherMethod method, const char* procedure, int interval);
         void update(uint64_t time);
-        std::map<const char*, Publisher*> publishers;
-        std::map<const char*, ServiceMethod> methods;
+        AMap<Publisher*> publishers;
+        AMap<ServiceMethod> methods;
     private:
-        aJsonObject* storage;
+        Json::Object storage;
     };
 }
 

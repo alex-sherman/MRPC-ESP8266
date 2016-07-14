@@ -5,14 +5,14 @@
 
 namespace MRPC {
 
-    class Message {
+    class Message : public Json::Object{
     public:
-        static Json::Object & Create(int id, const char* src, const char* dst);
-        static Json::Object & Create(const char* src, const char* dst);
-        static Json::Object & FromString(char *str, size_t size);
-        static bool is_request(Json::Object &);
-        static bool is_response(Json::Object &);
-        static bool is_valid(Json::Object &);
+        static Json::Object Create(int id, const char* src, const char* dst);
+        static Json::Object Create(const char* src, const char* dst);
+        static Json::Object FromString(char *str);
+        static bool is_request(Json::Object);
+        static bool is_response(Json::Object);
+        static bool is_valid(Json::Object);
 
     };
 }
