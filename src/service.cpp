@@ -43,15 +43,15 @@ void Service::add_publisher(const char* name, PublisherMethod method, const char
 }
 
 void Service::update(uint64_t time) {
-    /*for (auto const& it : publishers)
+    for (auto const& it : publishers)
     {
-        Publisher *publisher = it.second;
+        Publisher *publisher = it.value;
         if(publisher->interval == 0) continue;
         if(time - publisher->last_called > publisher->interval) {
             publisher->last_called = time;
-            node->rpc(publisher->path, publisher->procedure, publisher->method(this, &messageBuffer), &messageBuffer);
+            node->rpc(publisher->path, publisher->procedure, publisher->method(this));
         }
-    }*/
+    }
 }
 
 Publisher::Publisher(PublisherMethod method, const char* path, const char* procedure, uint interval) {

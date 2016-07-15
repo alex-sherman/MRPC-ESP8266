@@ -14,7 +14,7 @@ UDPTransport::UDPTransport()
 UDPTransport::UDPTransport(int local_port) {
     udp.begin(local_port);
     remote_port = local_port;
-    broadcast.ip = IPAddress(255, 255, 255, 0);
+    broadcast.ip = IPAddress(255, 255, 255, 255);
     broadcast.port = remote_port;
 }
 
@@ -49,17 +49,16 @@ void UDPTransport::send(Json::Object msg) {
         sendmsg(&udp, msg, dst);
     }
     else {
-        //int offset = ((uint8_t*)&msg - (uint8_t*)jsonBuffer);
-        //StaticJsonBuffer<2048> buffer_copy = *jsonBuffer;
-        //Serial.println("Derpy copying message: " + (offset));
-        //Result *result = node->rpc("*/Routing", "who_has", msg["dst"], jsonBuffer);
-        //result->when([=] (JsonVariant value, bool success) {
-        //    Serial.println("Got a routing response");
-        //    if(value.is<const char*>() && UUID::is(value.as<const char*>())) {
-        //        struct UDPEndpoint *_dst = known_guids.get(value.as<const char*>());
-        //        sendmsg(&udp, *(JsonObject*)((uint8_t *)&buffer_copy)[offset], _dst);
-        //    }
-        //});
+        Result *result = node->rpc("*/Routing", "who_has", msg["dst"]);
+        result->when([=] (Json::Value value, bool success) {
+            Serial.println("Got a routing response");
+            if(value.isString() && UUID::is(value.asString())) {
+                struct UDPEndpoint *_dst = known_guids.get(value.asString());
+                if(_dst) {
+                    sendmsg(&udp, msg, _dst);
+                }
+            }
+        });
     }
 }
 
