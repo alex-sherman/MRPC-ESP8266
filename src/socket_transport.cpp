@@ -78,12 +78,10 @@ Json::Object UDPTransport::recv() {
         output = read.asObject();
 
         if(Message::is_valid(output)) {
-            Serial.println("Message valid");
+            Serial.print("Message valid from: ");
             Serial.println(output["src"].asString());
             struct UDPEndpoint remote = {udp.remoteIP(), udp.remotePort()};
-            Serial.println("HERP");
             known_guids.set(output["src"].asString(), remote);
-            Serial.println("Returning");
         }
     }
     return output;

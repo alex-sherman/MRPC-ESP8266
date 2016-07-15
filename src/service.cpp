@@ -5,22 +5,22 @@
 using namespace MRPC;
 
 Json::Value get_publications(Service* self, Json::Value& value, bool& success) {
-    /*JsonObject out = *(new Json::Object());
+    Json::Object &out = *(new Json::Object());
     for (auto const& it : self->publishers)
     {
-        JsonObject& publisher = out.createNestedObject(it.first);
-        publisher["interval"] = it.second->interval;
-        publisher["procedure"] = it.second->procedure;
-        publisher["path"] = it.second->path;
-
+        Json::Object &publisher = *(new Json::Object());
+        publisher["interval"] = it.value->interval;
+        publisher["procedure"] = it.value->procedure;
+        publisher["path"] = it.value->path;
+        out[it.key] = publisher;
     }
-    return out;*/
+    return out;
 }
 Json::Value set_publication(Service* self, Json::Value& value, bool& success) {
     //return self->storage["publications"][value["name"].asString()] = value["value"];
 }
 
-Service::Service() {
+Service::Service() {//: publishers(*(new AMap<Publisher*>())), methods(*(new AMap<ServiceMethod>())) {
     add_method("get_publications", get_publications);
     add_method("set_publication", set_publication);
 }
@@ -30,10 +30,8 @@ void Service::add_method(const char* str, ServiceMethod method) {
 }
 
 ServiceMethod Service::get_method(const char* str) {
+    Serial.println(methods.id());
     for (auto const& it : methods) {
-        Serial.print(str);
-        Serial.print(strcmp(str, it.key));
-        Serial.println(it.key);
         if(strcmp(str, it.key) == 0)
             return it.value;
     }

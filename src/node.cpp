@@ -42,12 +42,14 @@ void Node::on_recv(Json::Object msg) {
                 Json::Value msg_value = msg["value"];
                 bool success = true;
                 Json::Value response_value = method(service, msg_value, success);
+                Serial.println("Result in node");
                 response["result"] = response_value;
                 if(success) {
                     for(int i = 0; i < transports.size(); i++) {
                         transports[i]->send(response);
                     }
                 }
+                Json::println(response_value, Serial);
             }
         }
     }
@@ -95,7 +97,7 @@ bool Node::poll() {
     }
     for (int i = 0; i < services.elements.size(); i++)
     {
-        services.elements[i].value->update(millis());
+        //services.elements[i].value->update(millis());
     }
     return output;
 }
