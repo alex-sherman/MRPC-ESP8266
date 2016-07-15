@@ -20,9 +20,14 @@ UDPTransport::UDPTransport(int local_port) {
 
 void sendmsg(WiFiUDP *udp, Json::Object msg, struct UDPEndpoint *address) {
     Serial.println("UDP Send begin");
+    Json::println(msg, Serial);
     size_t len = Json::measure(msg);
-    char buffer[len + 1];
-    Json::dump(msg, buffer);
+    Serial.print("Length: ");
+    Serial.println(len);
+    char buffer[len];
+    Json::dump(msg, buffer, sizeof(buffer));
+    Serial.println(len);
+    Serial.println(buffer);
     udp->beginPacket(address->ip, address->port); //NTP requests are to port 123
     udp->write(buffer, sizeof(buffer));
     udp->endPacket();
@@ -30,8 +35,9 @@ void sendmsg(WiFiUDP *udp, Json::Object msg, struct UDPEndpoint *address) {
 }
 
 void UDPTransport::send(Json::Object msg) {
-    Serial.println("Sent a message");
+    Serial.print("Sending message to: ");
     struct UDPEndpoint *dst = NULL;
+    Serial.println(msg["dst"].asString());
     Path dst_path = Path(msg["dst"].asString());
     if(dst_path.is_broadcast) {
         dst = &broadcast;

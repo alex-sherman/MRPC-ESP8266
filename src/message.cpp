@@ -9,13 +9,13 @@ using namespace Json;
 
 Json::Object Message::Create(int id, const char* src, const char* dst) {
     Json::Object msg = Create(src, dst);
-    msg["id"] = Value::from_int(id);
+    msg["id"] = id;
     return msg;
 }
 Json::Object Message::Create(const char* src, const char* dst) {
     Json::Object msg;
-    msg["src"] = Value::from_string(src);
-    msg["dst"] = Value::from_string(dst);
+    msg["src"] = src;
+    msg["dst"] = dst;
     return msg;
 }
 

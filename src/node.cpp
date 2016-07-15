@@ -44,7 +44,7 @@ void Node::on_recv(Json::Object msg) {
                 Json::Value response_value = method(service, msg_value, success);
                 response["result"] = response_value;
                 if(success) {
-                    for(int i = 0; i < transports.count; i++) {
+                    for(int i = 0; i < transports.size(); i++) {
                         transports[i]->send(response);
                     }
                 }
@@ -65,11 +65,11 @@ Result *Node::rpc(const char* path, const char* procedure, Json::Value value) {
     Serial.println("Node::RPC()");
     int id = this->id++;
     Json::Object msg = Message::Create(id, guid.hex, path);
-    msg["procedure"] = Json::Value::from_string(procedure);
+    msg["procedure"] = procedure;
     msg["value"] = value;
     Result *result = new Result();
     results[id] = result;
-    for(int i = 0; i < transports.count; i++)
+    for(int i = 0; i < transports.size(); i++)
     {
         transports[i]->send(msg);
     }
@@ -79,7 +79,7 @@ Result *Node::rpc(const char* path, const char* procedure, Json::Value value) {
 Service *Node::get_service(Path path) {
     Serial.print("Looking up service: ");
     Serial.println(path.service);
-    for (int i = 0; i < services.elements.count; i++)
+    for (int i = 0; i < services.elements.size(); i++)
     {
         auto kvp = services.elements[i];
         if(strcmp(kvp.key, path.service) == 0)
@@ -90,10 +90,10 @@ Service *Node::get_service(Path path) {
 
 bool Node::poll() {
     bool output = false;
-    for(int i = 0; i < transports.count; i++) {
+    for(int i = 0; i < transports.size(); i++) {
         output |= transports[i]->poll();
     }
-    for (int i = 0; i < services.elements.count; i++)
+    for (int i = 0; i < services.elements.size(); i++)
     {
         services.elements[i].value->update(millis());
     }
