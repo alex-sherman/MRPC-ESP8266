@@ -24,7 +24,7 @@ void Node::register_service(const char* path, Service *service) {
     Serial.println(path);
 }
 
-void Node::on_recv(Json::Object msg) {
+void Node::on_recv(Json::Object &msg) {
     if(Message::is_request(msg)) {
         Serial.println("Received a request");
         Path path = Path(msg["dst"].asString());
@@ -35,7 +35,7 @@ void Node::on_recv(Json::Object msg) {
             ServiceMethod method = service->get_method(msg["procedure"].asString());
             if(method) {
                 Serial.println("Have method");
-                Json::Object response = 
+                Json::Object &response = 
                     msg["id"].isInt() ? 
                         Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
                         Message::Create(guid.hex, msg["src"].asString());
@@ -49,6 +49,7 @@ void Node::on_recv(Json::Object msg) {
                         transports[i]->send(response);
                     }
                 }
+                delete &response;
                 Json::println(response_value, Serial);
             }
         }
@@ -66,7 +67,7 @@ void Node::on_recv(Json::Object msg) {
 Result *Node::rpc(const char* path, const char* procedure, Json::Value value) {
     Serial.println("Node::RPC()");
     int id = this->id++;
-    Json::Object msg = Message::Create(id, guid.hex, path);
+    Json::Object &msg = Message::Create(id, guid.hex, path);
     msg["procedure"] = procedure;
     msg["value"] = value;
     Result *result = new Result();
@@ -75,15 +76,16 @@ Result *Node::rpc(const char* path, const char* procedure, Json::Value value) {
     {
         transports[i]->send(msg);
     }
+    delete &msg;
+    Serial.println("RPC END");
     return result;
 }
 
 Service *Node::get_service(Path path) {
     Serial.print("Looking up service: ");
     Serial.println(path.service);
-    for (int i = 0; i < services.elements.size(); i++)
+    for (auto kvp : services)
     {
-        auto kvp = services.elements[i];
         if(strcmp(kvp.key, path.service) == 0)
             return kvp.value;
     }
@@ -95,9 +97,9 @@ bool Node::poll() {
     for(int i = 0; i < transports.size(); i++) {
         output |= transports[i]->poll();
     }
-    for (int i = 0; i < services.elements.size(); i++)
+    for (auto kvp : services)
     {
-        services.elements[i].value->update(millis());
+        kvp.value->update(millis());
     }
     return output;
 }

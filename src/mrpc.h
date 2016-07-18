@@ -19,15 +19,16 @@ namespace MRPC {
     class Routing;
     class UUID;
     class Result {
-        typedef std::function<void(Json::Value, bool)> Callback;
+        typedef std::function<void(Json::Value, bool, void*)> Callback;
         
     public:
         Result() { }
         void resolve(Json::Value, bool success);
-        void when(Callback callback);
+        void when(Callback callback, void *data = NULL);
         AList<Callback> callbacks;
         bool completed;
         bool success;
+        void *data;
     };
 
     //Result *rpc(std::string path, std::string procedure, )
@@ -39,7 +40,7 @@ namespace MRPC {
         void use_transport(Transport *transport);
         void register_service(const char* path, Service *service);
         Service *get_service(Path path);
-        void on_recv(Json::Object);
+        void on_recv(Json::Object&);
         Result *rpc(const char*, const char*,Json::Value);
         AMap<Service*> services;
         void wait();
@@ -56,8 +57,8 @@ namespace MRPC {
         Node *node;
         bool poll();
         void close();
-        virtual void send(Json::Object) = 0;
-        virtual Json::Object recv() = 0;
+        virtual void send(Json::Object&) = 0;
+        virtual Json::Object &recv() = 0;
     };
     struct UDPEndpoint {
         IPAddress ip;
@@ -67,8 +68,8 @@ namespace MRPC {
     public:
         UDPTransport();
         UDPTransport(int local_port);
-        void send(Json::Object);
-        Json::Object recv();
+        void send(Json::Object&);
+        Json::Object &recv();
         struct UDPEndpoint *guid_lookup(const char *hex);
     private:
         struct UDPEndpoint broadcast;

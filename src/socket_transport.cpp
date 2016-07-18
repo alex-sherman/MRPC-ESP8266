@@ -18,7 +18,7 @@ UDPTransport::UDPTransport(int local_port) {
     broadcast.port = remote_port;
 }
 
-void sendmsg(WiFiUDP *udp, Json::Object msg, struct UDPEndpoint *address) {
+void sendmsg(WiFiUDP *udp, Json::Object &msg, struct UDPEndpoint *address) {
     Serial.println("UDP Send begin");
     Json::println(msg, Serial);
     size_t len = Json::measure(msg);
@@ -34,7 +34,7 @@ void sendmsg(WiFiUDP *udp, Json::Object msg, struct UDPEndpoint *address) {
     Serial.println("UDP Send end");
 }
 
-void UDPTransport::send(Json::Object msg) {
+void UDPTransport::send(Json::Object &msg) {
     Serial.print("Sending message to: ");
     struct UDPEndpoint *dst = NULL;
     Serial.println(msg["dst"].asString());
@@ -50,7 +50,8 @@ void UDPTransport::send(Json::Object msg) {
     }
     else {
         Result *result = node->rpc("*/Routing", "who_has", msg["dst"]);
-        result->when([=] (Json::Value value, bool success) {
+        result->when([=] (Json::Value value, bool success, void *data) {
+            Json::Object &msg = *(Json::Object*)data;
             Serial.println("Got a routing response");
             if(value.isString() && UUID::is(value.asString())) {
                 struct UDPEndpoint *_dst = known_guids.get(value.asString());
@@ -58,12 +59,12 @@ void UDPTransport::send(Json::Object msg) {
                     sendmsg(&udp, msg, _dst);
                 }
             }
-        });
+        }, msg.clone());
     }
 }
 
-Json::Object UDPTransport::recv() {
-    Json::Object output;
+Json::Object &UDPTransport::recv() {
+    Json::Object &output = *(new Json::Object());
     int cb = udp.parsePacket();
     char buffer[1024];
     if(cb > 0) {

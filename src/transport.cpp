@@ -6,7 +6,7 @@ using namespace MRPC;
 
 bool Transport::poll() {
     bool ret = true;
-    Json::Object msg = recv();
+    Json::Object &msg = recv();
     if(!Message::is_valid(msg))
         ret = false;
     else {
@@ -16,5 +16,6 @@ bool Transport::poll() {
         if(strcmp(msg["src"].asString(), node->guid.hex))
             node->on_recv(msg);
     }
+    delete &msg;
     return ret;
 }
