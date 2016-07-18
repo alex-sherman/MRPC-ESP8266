@@ -6,16 +6,16 @@ using namespace MRPC;
 
 bool Transport::poll() {
     bool ret = true;
-    Json::Object &msg = recv();
-    if(!Message::is_valid(msg))
+    Json::Value msg = recv();
+    if(!msg.isObject() || !Message::is_valid(msg.asObject()))
         ret = false;
     else {
         Serial.println("Got message");
         Json::print(msg, Serial);
         Serial.println();
-        if(strcmp(msg["src"].asString(), node->guid.hex))
-            node->on_recv(msg);
+        if(strcmp(msg.asObject()["src"].asString(), node->guid.hex))
+            node->on_recv(msg.asObject());
     }
-    delete &msg;
+    msg.free_parsed();
     return ret;
 }

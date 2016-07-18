@@ -49,41 +49,37 @@ void Node::on_recv(Json::Object &msg) {
                         transports[i]->send(response);
                     }
                 }
-                delete &response;
                 Json::println(response_value, Serial);
+                delete &response;
             }
         }
     }
     else if(Message::is_response(msg)) {
         Serial.println("Received a response");
-        Result *result = results[msg["id"].valueint];
-        if(result) {
+        if(results.has(msg["id"].asInt())) {
+            Result &result = results[msg["id"].asInt()];
             bool failure = msg["result"].type == JSON_INVALID;
-            result->resolve(failure ? msg["error"] : msg["result"], failure);
+            result.resolve(failure ? msg["error"] : msg["result"], failure);
         }
     }
 }
 
 Result *Node::rpc(const char* path, const char* procedure, Json::Value value) {
-    Serial.println("Node::RPC()");
     int id = this->id++;
     Json::Object &msg = Message::Create(id, guid.hex, path);
     msg["procedure"] = procedure;
     msg["value"] = value;
-    Result *result = new Result();
-    results[id] = result;
     for(int i = 0; i < transports.size(); i++)
     {
         transports[i]->send(msg);
     }
+    //Don't delete the value we passed in
+    msg["value"] = 0;
     delete &msg;
-    Serial.println("RPC END");
-    return result;
+    return results.get_create(id);
 }
 
 Service *Node::get_service(Path path) {
-    Serial.print("Looking up service: ");
-    Serial.println(path.service);
     for (auto kvp : services)
     {
         if(strcmp(kvp.key, path.service) == 0)
@@ -94,10 +90,16 @@ Service *Node::get_service(Path path) {
 
 bool Node::poll() {
     bool output = false;
+    for(auto &kvp : results) {
+        if(kvp.valid && kvp.value.stale()) {
+            kvp.valid = false;
+            kvp.value.data.free_parsed();
+        }
+    }
     for(int i = 0; i < transports.size(); i++) {
         output |= transports[i]->poll();
     }
-    for (auto kvp : services)
+    for (auto &kvp : services)
     {
         kvp.value->update(millis());
     }

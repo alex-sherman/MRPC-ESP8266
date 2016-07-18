@@ -50,8 +50,8 @@ void UDPTransport::send(Json::Object &msg) {
     }
     else {
         Result *result = node->rpc("*/Routing", "who_has", msg["dst"]);
-        result->when([=] (Json::Value value, bool success, void *data) {
-            Json::Object &msg = *(Json::Object*)data;
+        result->when([=] (Json::Value value, bool success, Json::Value data) {
+            Json::Object &msg = data.asObject();
             Serial.println("Got a routing response");
             if(value.isString() && UUID::is(value.asString())) {
                 struct UDPEndpoint *_dst = known_guids.get(value.asString());
@@ -59,12 +59,12 @@ void UDPTransport::send(Json::Object &msg) {
                     sendmsg(&udp, msg, _dst);
                 }
             }
-        }, msg.clone());
+        }, *msg.clone());
     }
 }
 
-Json::Object &UDPTransport::recv() {
-    Json::Object &output = *(new Json::Object());
+Json::Value UDPTransport::recv() {
+    Json::Value output;
     int cb = udp.parsePacket();
     char buffer[1024];
     if(cb > 0) {
@@ -72,16 +72,18 @@ Json::Object &UDPTransport::recv() {
         buffer[cb + 1] = 0;
         Json::Value read = Json::parse(buffer);
         Serial.println("Parsed message");
-        if(!read.isObject())
+        if(!read.isObject()) {
+            read.free_parsed();
             return output;
+        }
 
         output = read.asObject();
 
-        if(Message::is_valid(output)) {
+        if(Message::is_valid(output.asObject())) {
             Serial.print("Message valid from: ");
-            Serial.println(output["src"].asString());
+            Serial.println(output.asObject()["src"].asString());
             struct UDPEndpoint remote = {udp.remoteIP(), udp.remotePort()};
-            known_guids.set(output["src"].asString(), remote);
+            known_guids.set(output.asObject()["src"].asString(), remote);
         }
     }
     return output;

@@ -19,16 +19,18 @@ namespace MRPC {
     class Routing;
     class UUID;
     class Result {
-        typedef std::function<void(Json::Value, bool, void*)> Callback;
+        typedef std::function<void(Json::Value, bool, Json::Value)> Callback;
         
     public:
-        Result() { }
+        Result() { timestamp = millis(); }
+        long timestamp;
+        bool stale() { return (millis() - timestamp) > 3000; }
         void resolve(Json::Value, bool success);
-        void when(Callback callback, void *data = NULL);
-        AList<Callback> callbacks;
+        void when(Callback callback, Json::Value data);
+        Callback callback;
         bool completed;
         bool success;
-        void *data;
+        Json::Value data;
     };
 
     //Result *rpc(std::string path, std::string procedure, )
@@ -50,7 +52,7 @@ namespace MRPC {
         Routing *routing;
         static Node *_single;
         AList<MRPC::Transport*> transports;
-        AMap<Result*> results;
+        AMap<Result> results;
     };
     class Transport {
     public:
@@ -58,7 +60,7 @@ namespace MRPC {
         bool poll();
         void close();
         virtual void send(Json::Object&) = 0;
-        virtual Json::Object &recv() = 0;
+        virtual Json::Value recv() = 0;
     };
     struct UDPEndpoint {
         IPAddress ip;
@@ -69,7 +71,7 @@ namespace MRPC {
         UDPTransport();
         UDPTransport(int local_port);
         void send(Json::Object&);
-        Json::Object &recv();
+        Json::Value recv();
         struct UDPEndpoint *guid_lookup(const char *hex);
     private:
         struct UDPEndpoint broadcast;

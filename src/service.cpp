@@ -49,7 +49,9 @@ void Service::update(uint64_t time) {
         if(publisher->interval == 0) continue;
         if(time - publisher->last_called > publisher->interval) {
             publisher->last_called = time;
-            node->rpc(publisher->path, publisher->procedure, publisher->method(this));
+            Json::Value result = publisher->method(this);
+            node->rpc(publisher->path, publisher->procedure, result);
+            result.free_parsed();
         }
     }
 }

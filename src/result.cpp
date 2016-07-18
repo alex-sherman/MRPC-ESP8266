@@ -4,11 +4,9 @@ using namespace MRPC;
 
 void Result::resolve(Json::Value value, bool success) {
     this->success = success;
-    for(int i = 0; i < callbacks.size(); i++) {
-        callbacks[i](value, success, data);
-    }
+    this->callback(value, success, data);
 }
-void Result::when(Callback callback, void *data) {
+void Result::when(Callback callback, Json::Value data) {
     this->data = data;
-    callbacks.append(callback);
+    this->callback = callback;
 }
