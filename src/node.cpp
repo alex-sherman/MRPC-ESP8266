@@ -20,21 +20,15 @@ void Node::use_transport(Transport *transport) {
 void Node::register_service(const char* path, Service *service) {
     service->node = this;
     services[path] = service;
-    Serial.print("Added service:");
-    Serial.println(path);
 }
 
 void Node::on_recv(Json::Object &msg) {
     if(Message::is_request(msg)) {
-        Serial.println("Received a request");
         Path path = Path(msg["dst"].asString());
         Service *service = get_service(path);
         if(service) {
-            Serial.print("Finding method: ");
-            Serial.println(msg["procedure"].asString());
             ServiceMethod method = service->get_method(msg["procedure"].asString());
             if(method) {
-                Serial.println("Have method");
                 Json::Object &response = 
                     msg["id"].isInt() ? 
                         Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
@@ -42,20 +36,17 @@ void Node::on_recv(Json::Object &msg) {
                 Json::Value msg_value = msg["value"];
                 bool success = true;
                 Json::Value response_value = method(service, msg_value, success);
-                Serial.println("Result in node");
                 response["result"] = response_value;
                 if(success) {
                     for(int i = 0; i < transports.size(); i++) {
                         transports[i]->send(response);
                     }
                 }
-                Json::println(response_value, Serial);
                 delete &response;
             }
         }
     }
     else if(Message::is_response(msg)) {
-        Serial.println("Received a response");
         if(results.has(msg["id"].asInt())) {
             Result &result = results[msg["id"].asInt()];
             bool failure = msg["result"].type == JSON_INVALID;

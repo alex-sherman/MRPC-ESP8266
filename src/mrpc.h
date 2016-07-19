@@ -11,29 +11,18 @@
 #include "path.h"
 #include "uuid.h"
 #include "amap.h"
-#include <functional>
+#include "transport.h"
+#include "result.h"
 
 namespace MRPC {
+    void init();
+    void poll();
+    Json::Object &settings();
+    void save_settings();
     class Transport;
     class Service;
     class Routing;
     class UUID;
-    class Result {
-        typedef std::function<void(Json::Value, bool, Json::Value)> Callback;
-        
-    public:
-        Result() { timestamp = millis(); }
-        long timestamp;
-        bool stale() { return (millis() - timestamp) > 3000; }
-        void resolve(Json::Value, bool success);
-        void when(Callback callback, Json::Value data);
-        Callback callback;
-        bool completed;
-        bool success;
-        Json::Value data;
-    };
-
-    //Result *rpc(std::string path, std::string procedure, )
 
     class Node {
     public:
@@ -53,31 +42,6 @@ namespace MRPC {
         static Node *_single;
         AList<MRPC::Transport*> transports;
         AMap<Result> results;
-    };
-    class Transport {
-    public:
-        Node *node;
-        bool poll();
-        void close();
-        virtual void send(Json::Object&) = 0;
-        virtual Json::Value recv() = 0;
-    };
-    struct UDPEndpoint {
-        IPAddress ip;
-        uint16_t port;
-    };
-    class UDPTransport : public Transport {
-    public:
-        UDPTransport();
-        UDPTransport(int local_port);
-        void send(Json::Object&);
-        Json::Value recv();
-        struct UDPEndpoint *guid_lookup(const char *hex);
-    private:
-        struct UDPEndpoint broadcast;
-        AMap<struct UDPEndpoint> known_guids;
-        WiFiUDP udp;
-        uint16_t remote_port;
     };
 }
 

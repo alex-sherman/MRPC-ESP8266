@@ -30,7 +30,6 @@ void Service::add_method(const char* str, ServiceMethod method) {
 }
 
 ServiceMethod Service::get_method(const char* str) {
-    Serial.println(methods.id());
     for (auto const& it : methods) {
         if(strcmp(str, it.key) == 0)
             return it.value;

@@ -1,4 +1,5 @@
 #include "mrpc.h"
+#include "result.h"
 
 using namespace MRPC;
 

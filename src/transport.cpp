@@ -10,9 +10,6 @@ bool Transport::poll() {
     if(!msg.isObject() || !Message::is_valid(msg.asObject()))
         ret = false;
     else {
-        Serial.println("Got message");
-        Json::print(msg, Serial);
-        Serial.println();
         if(strcmp(msg.asObject()["src"].asString(), node->guid.hex))
             node->on_recv(msg.asObject());
     }

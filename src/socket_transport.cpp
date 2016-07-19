@@ -19,25 +19,16 @@ UDPTransport::UDPTransport(int local_port) {
 }
 
 void sendmsg(WiFiUDP *udp, Json::Object &msg, struct UDPEndpoint *address) {
-    Serial.println("UDP Send begin");
-    Json::println(msg, Serial);
     size_t len = Json::measure(msg);
-    Serial.print("Length: ");
-    Serial.println(len);
     char buffer[len];
     Json::dump(msg, buffer, sizeof(buffer));
-    Serial.println(len);
-    Serial.println(buffer);
     udp->beginPacket(address->ip, address->port); //NTP requests are to port 123
     udp->write(buffer, sizeof(buffer));
     udp->endPacket();
-    Serial.println("UDP Send end");
 }
 
 void UDPTransport::send(Json::Object &msg) {
-    Serial.print("Sending message to: ");
     struct UDPEndpoint *dst = NULL;
-    Serial.println(msg["dst"].asString());
     Path dst_path = Path(msg["dst"].asString());
     if(dst_path.is_broadcast) {
         dst = &broadcast;
@@ -52,7 +43,6 @@ void UDPTransport::send(Json::Object &msg) {
         Result *result = node->rpc("*/Routing", "who_has", msg["dst"]);
         result->when([=] (Json::Value value, bool success, Json::Value data) {
             Json::Object &msg = data.asObject();
-            Serial.println("Got a routing response");
             if(value.isString() && UUID::is(value.asString())) {
                 struct UDPEndpoint *_dst = known_guids.get(value.asString());
                 if(_dst) {
@@ -71,7 +61,6 @@ Json::Value UDPTransport::recv() {
         udp.read(buffer, 1023);
         buffer[cb + 1] = 0;
         Json::Value read = Json::parse(buffer);
-        Serial.println("Parsed message");
         if(!read.isObject()) {
             read.free_parsed();
             return output;
@@ -80,8 +69,6 @@ Json::Value UDPTransport::recv() {
         output = read.asObject();
 
         if(Message::is_valid(output.asObject())) {
-            Serial.print("Message valid from: ");
-            Serial.println(output.asObject()["src"].asString());
             struct UDPEndpoint remote = {udp.remoteIP(), udp.remotePort()};
             known_guids.set(output.asObject()["src"].asString(), remote);
         }
