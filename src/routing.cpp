@@ -6,14 +6,14 @@ using namespace MRPC;
 
 Json::Value who_has(Service* self, Json::Value& value, bool& success) {
     Path path = Path(value.asString());
-    Service *service = self->node->get_service(path);
+    Service *service = MRPC::get_service(path);
     if(service)
-        return self->node->guid.hex;
+        return MRPC::guid.hex;
     success = false;
 }
 Json::Value list_procedures(Service* self, Json::Value& value, bool& success) {
     Json::Object out;
-    for (auto const& service_it : self->node->services)
+    for (auto const& service_it : MRPC::services)
     {
         Json::Array service;
         for (auto const& method : service_it.value->methods)

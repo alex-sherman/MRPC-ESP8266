@@ -10,8 +10,8 @@ bool Transport::poll() {
     if(!msg.isObject() || !Message::is_valid(msg.asObject()))
         ret = false;
     else {
-        if(strcmp(msg.asObject()["src"].asString(), node->guid.hex))
-            node->on_recv(msg.asObject());
+        if(strcmp(msg.asObject()["src"].asString(), MRPC::guid.hex))
+            MRPC::on_recv(msg.asObject());
     }
     msg.free_parsed();
     return ret;

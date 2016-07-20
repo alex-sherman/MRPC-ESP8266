@@ -4,7 +4,6 @@ namespace MRPC {
     class Node;
     class Transport {
     public:
-        Node *node;
         bool poll();
         void close();
         virtual void send(Json::Object&) = 0;

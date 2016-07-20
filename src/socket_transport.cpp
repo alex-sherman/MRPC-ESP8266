@@ -40,7 +40,7 @@ void UDPTransport::send(Json::Object &msg) {
         sendmsg(&udp, msg, dst);
     }
     else {
-        Result *result = node->rpc("*/Routing", "who_has", msg["dst"]);
+        Result *result = rpc("*/Routing", "who_has", msg["dst"]);
         result->when([=] (Json::Value value, bool success, Json::Value data) {
             Json::Object &msg = data.asObject();
             if(value.isString() && UUID::is(value.asString())) {

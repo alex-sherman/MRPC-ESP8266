@@ -5,7 +5,6 @@
 
 namespace MRPC {
 
-    class Node;
     class Service;
     typedef Json::Value (*ServiceMethod)(Service* self, Json::Value& value, bool& success);
     typedef Json::Value (*PublisherMethod)(Service*);
@@ -25,7 +24,6 @@ namespace MRPC {
 
     class Service {
     public:
-        Node *node;
         Service();
         void add_method(const char*, ServiceMethod method);
         ServiceMethod get_method(const char*);

@@ -1,3 +1,5 @@
+#pragma once
+
 #ifndef _MRPC_H_
 #define _MRPC_H_
 
@@ -24,25 +26,18 @@ namespace MRPC {
     class Routing;
     class UUID;
 
-    class Node {
-    public:
-        Node();
-        UUID guid;
-        void use_transport(Transport *transport);
-        void register_service(const char* path, Service *service);
-        Service *get_service(Path path);
-        void on_recv(Json::Object&);
-        Result *rpc(const char*, const char*,Json::Value);
-        AMap<Service*> services;
-        void wait();
-        bool poll();
-    private:
-        int id = 0;
-        Routing *routing;
-        static Node *_single;
-        AList<MRPC::Transport*> transports;
-        AMap<Result> results;
-    };
+    static UUID guid;
+    void use_transport(Transport *transport);
+    void register_service(const char* path, Service *service);
+    Service *get_service(Path path);
+    void on_recv(Json::Object&);
+    Result *rpc(const char*, const char*,Json::Value);
+    static AMap<Service*> services;
+    void wait();
+
+    static Routing *routing;
+    static AList<MRPC::Transport*> transports;
+    static AMap<Result> results;
 }
 
 #endif //_MRPC_H_

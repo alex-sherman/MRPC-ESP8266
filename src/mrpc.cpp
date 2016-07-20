@@ -2,6 +2,7 @@
 #include <EEPROM.h>
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
+#include "message.h"
 
 using namespace MRPC;
 
@@ -11,8 +12,14 @@ void handleConnect();
 void handleRoot();
 void setupWiFiAP(const char*);
 bool validWifiSettings();
+int Message::id = 0;
 
 void MRPC::init() {
+    Message::id = 0;
+    guid = UUID();
+    routing = new Routing();
+    register_service("/Routing", routing);
+
     EEPROM.begin(1024);
     char json[1024];
     EEPROM.get(0, json);
@@ -45,6 +52,7 @@ void MRPC::init() {
     else {
         Serial.println("Couldn't find WiFi settings");
         settings()["wifi"] = *(new Json::Object());
+        Json::println(settings(), Serial);
     }
 
     if(createAP) {
@@ -59,6 +67,21 @@ void MRPC::init() {
 
 void MRPC::poll() {
     server.handleClient();
+
+    bool output = false;
+    for(auto &kvp : results) {
+        if(kvp.valid && kvp.value.stale()) {
+            kvp.valid = false;
+            kvp.value.data.free_parsed();
+        }
+    }
+    for(int i = 0; i < transports.size(); i++) {
+        output |= transports[i]->poll();
+    }
+    for (auto &kvp : services)
+    {
+        kvp.value->update(millis());
+    }
 }
 
 Json::Object &MRPC::settings() {
@@ -76,9 +99,9 @@ Json::Object &MRPC::settings() {
     return *eepromJSON;
 }
 void MRPC::save_settings() {
-    Json::print(eepromJSON, Serial);
     char json[1024];
-    Json::dump(eepromJSON, json, sizeof(json));
+    Json::dump(settings(), json, sizeof(json));
+    Serial.print("Saving to eeprom: ");
     Serial.println(json);
     EEPROM.put(0, json);
     EEPROM.commit();
@@ -144,4 +167,69 @@ bool validWifiSettings() {
     Json::Object &wifi_settings = settings()["wifi"].asObject();
     if(!wifi_settings["ssid"].isString() || !wifi_settings["password"].isString()) return false;
     return true;
+}
+
+
+void MRPC::use_transport(Transport *transport) {
+    transports.append(transport);
+}
+void MRPC::register_service(const char* path, Service *service) {
+    services[path] = service;
+}
+
+void MRPC::on_recv(Json::Object &msg) {
+    if(Message::is_request(msg)) {
+        Path path = Path(msg["dst"].asString());
+        Service *service = get_service(path);
+        if(service) {
+            ServiceMethod method = service->get_method(msg["procedure"].asString());
+            if(method) {
+                Json::Object &response = 
+                    msg["id"].isInt() ? 
+                        Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
+                        Message::Create(guid.hex, msg["src"].asString());
+                Json::Value msg_value = msg["value"];
+                bool success = true;
+                Json::Value response_value = method(service, msg_value, success);
+                response["result"] = response_value;
+                if(success) {
+                    for(int i = 0; i < transports.size(); i++) {
+                        transports[i]->send(response);
+                    }
+                }
+                delete &response;
+            }
+        }
+    }
+    else if(Message::is_response(msg)) {
+        if(results.has(msg["id"].asInt())) {
+            Result &result = results[msg["id"].asInt()];
+            bool failure = msg["result"].type == JSON_INVALID;
+            result.resolve(failure ? msg["error"] : msg["result"], failure);
+        }
+    }
+}
+
+Result *MRPC::rpc(const char* path, const char* procedure, Json::Value value) {
+    int id = Message::id++;
+    Json::Object &msg = Message::Create(id, guid.hex, path);
+    msg["procedure"] = procedure;
+    msg["value"] = value;
+    for(int i = 0; i < transports.size(); i++)
+    {
+        transports[i]->send(msg);
+    }
+    //Don't delete the value we passed in
+    msg["value"] = 0;
+    delete &msg;
+    return results.get_create(id);
+}
+
+Service *MRPC::get_service(Path path) {
+    for (auto kvp : services)
+    {
+        if(strcmp(kvp.key, path.service) == 0)
+            return kvp.value;
+    }
+    return NULL;
 }

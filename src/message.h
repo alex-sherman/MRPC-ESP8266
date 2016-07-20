@@ -5,8 +5,9 @@
 
 namespace MRPC {
 
-    class Message : public Json::Object{
+    class Message {
     public:
+        static int id;
         static Json::Object &Create(int id, const char* src, const char* dst);
         static Json::Object &Create(const char* src, const char* dst);
         static Json::Object &FromString(char *str);
