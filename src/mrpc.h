@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <json.h>
-#include <WiFiUDP.h>
+#include <WiFiUdp.h>
 #include "message.h"
 #include "service.h"
 #include "routing.h"
@@ -17,7 +17,7 @@
 #include "result.h"
 
 namespace MRPC {
-    void init();
+    void init(int port = 50123, const char*prefix = "/");
     void poll();
     Json::Object &settings();
     void save_settings();
@@ -28,13 +28,15 @@ namespace MRPC {
 
     static UUID guid;
     void use_transport(Transport *transport);
-    void register_service(const char* path, Service *service);
+    Service &create_service(const char* name);
+    void register_service(Service *service);
     Service *get_service(Path path);
     void on_recv(Json::Object&);
-    Result *rpc(const char*, const char*,Json::Value);
+    Result *rpc(const char* path, const char* procedure,Json::Value value);
     static AMap<Service*> services;
     void wait();
 
+    static Path prefix = Path("/");
     static Routing *routing;
     static AList<MRPC::Transport*> transports;
     static AMap<Result> results;

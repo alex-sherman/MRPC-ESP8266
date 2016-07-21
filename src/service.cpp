@@ -11,7 +11,6 @@ Json::Value get_publications(Service* self, Json::Value& value, bool& success) {
         Json::Object &publisher = *(new Json::Object());
         publisher["interval"] = it.value->interval;
         publisher["procedure"] = it.value->procedure;
-        publisher["path"] = it.value->path;
         out[it.key] = publisher;
     }
     return out;
@@ -20,7 +19,10 @@ Json::Value set_publication(Service* self, Json::Value& value, bool& success) {
     //return self->storage["publications"][value["name"].asString()] = value["value"];
 }
 
-Service::Service() {//: publishers(*(new AMap<Publisher*>())), methods(*(new AMap<ServiceMethod>())) {
+Service::Service(const char *name) {
+    Path p = Path(name);
+    this->path = prefix.concat(p);
+    strncpy(this->name, name, sizeof(this->name));
     add_method("get_publications", get_publications);
     add_method("set_publication", set_publication);
 }
@@ -37,8 +39,8 @@ ServiceMethod Service::get_method(const char* str) {
     return NULL;
 }
 
-void Service::add_publisher(const char* name, PublisherMethod method, const char* path, int interval) {
-    publishers[name] = new Publisher(method, path, name, interval);
+void Service::add_publisher(const char* name, PublisherMethod method, int interval) {
+    publishers[name] = new Publisher(method, name, interval);
 }
 
 void Service::update(uint64_t time) {
@@ -49,15 +51,14 @@ void Service::update(uint64_t time) {
         if(time - publisher->last_called > publisher->interval) {
             publisher->last_called = time;
             Json::Value result = publisher->method(this);
-            rpc(publisher->path, publisher->procedure, result);
+            rpc(this->path.path, publisher->procedure, result);
             result.free_parsed();
         }
     }
 }
 
-Publisher::Publisher(PublisherMethod method, const char* path, const char* procedure, uint interval) {
+Publisher::Publisher(PublisherMethod method, const char* procedure, uint interval) {
     this->method = method;
-    this->path = path;
     this->procedure = procedure;
     this->interval = interval;
 }

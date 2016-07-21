@@ -25,7 +25,7 @@ Json::Value list_procedures(Service* self, Json::Value& value, bool& success) {
     return out;
 }
 
-Routing::Routing() {
+Routing::Routing() : Service("Routing") {
     add_method("who_has", &who_has);
     add_method("list_procedures", &list_procedures);
 }

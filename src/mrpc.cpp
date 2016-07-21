@@ -14,11 +14,12 @@ void setupWiFiAP(const char*);
 bool validWifiSettings();
 int Message::id = 0;
 
-void MRPC::init() {
+void MRPC::init(int port, const char*prefix) {
+    MRPC::prefix = Path(prefix);
+    use_transport(new UDPTransport(port));
     Message::id = 0;
     guid = UUID();
-    routing = new Routing();
-    register_service("/Routing", routing);
+    register_service(new Routing());
 
     EEPROM.begin(1024);
     char json[1024];
@@ -173,8 +174,15 @@ bool validWifiSettings() {
 void MRPC::use_transport(Transport *transport) {
     transports.append(transport);
 }
-void MRPC::register_service(const char* path, Service *service) {
-    services[path] = service;
+
+void MRPC::register_service(Service *service) {
+    services[service->name] = service;
+}
+
+Service &MRPC::create_service(const char* name) {
+    Service *service = new Service(name);
+    register_service(service);
+    return *service;
 }
 
 void MRPC::on_recv(Json::Object &msg) {
@@ -228,7 +236,7 @@ Result *MRPC::rpc(const char* path, const char* procedure, Json::Value value) {
 Service *MRPC::get_service(Path path) {
     for (auto kvp : services)
     {
-        if(strcmp(kvp.key, path.service) == 0)
+        if(path.match(kvp.value->path))
             return kvp.value;
     }
     return NULL;
