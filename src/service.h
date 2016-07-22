@@ -8,33 +8,35 @@ namespace MRPC {
 
     class Service;
     typedef Json::Value (*ServiceMethod)(Service* self, Json::Value& value, bool& success);
-    typedef Json::Value (*PublisherMethod)(Service*);
+    typedef Json::Value (*PublisherMethod)();
 
     class Publisher {
     public:
-        Publisher(PublisherMethod method, const char* procedure) :
-            Publisher(method, procedure, 0) { };
-        Publisher(PublisherMethod, const char* procedure, uint);
-        Publisher() { }
+        Publisher(PublisherMethod method, const char* path, uint interval)
+        : method(method), interval(interval) {
+            strncpy(this->path, path, sizeof(this->path));
+        }
         PublisherMethod method;
-        const char* procedure;
+        char path[64];
         uint interval;
-        uint64_t last_called; 
+        uint64_t last_called;
     };
 
     class Service {
     public:
-        Service(const char *name);
-        void add_method(const char*, ServiceMethod method);
-        ServiceMethod get_method(const char*);
-        void add_publisher(const char* name, PublisherMethod method, int interval);
-        void update(uint64_t time);
-        AMap<Publisher*> publishers;
-        AMap<ServiceMethod> methods;
-        char name[64];
-        Path path;
-    private:
-        Json::Object storage;
+        Service(const char *method_name, ServiceMethod method) {
+            strncpy(this->method_name, method_name, sizeof(this->method_name));
+            this->method = method;
+        }
+        Service& respond(const char* alias) {
+            char *buf = (char*)malloc(strlen(alias));
+            strcpy(buf, alias);
+            aliases.append(buf);
+            return *this;
+        }
+        ServiceMethod method;
+        char method_name[64];
+        AList<char *> aliases;
     };
 }
 

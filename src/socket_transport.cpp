@@ -27,30 +27,10 @@ void sendmsg(WiFiUDP *udp, Json::Object &msg, struct UDPEndpoint *address) {
     udp->endPacket();
 }
 
-void UDPTransport::send(Json::Object &msg) {
-    struct UDPEndpoint *dst = NULL;
-    Path dst_path = Path(msg["dst"].asString());
-    if(dst_path.is_broadcast) {
-        dst = &broadcast;
-    }
-    else {
-        dst = known_guids.get(msg["dst"].asString());
-    }
-    if(dst) {
-        sendmsg(&udp, msg, dst);
-    }
-    else {
-        Result *result = rpc("*/Routing", "who_has", msg["dst"]);
-        result->when([=] (Json::Value value, bool success, Json::Value data) {
-            Json::Object &msg = data.asObject();
-            if(value.isString() && UUID::is(value.asString())) {
-                struct UDPEndpoint *_dst = known_guids.get(value.asString());
-                if(_dst) {
-                    sendmsg(&udp, msg, _dst);
-                }
-            }
-        }, *msg.clone());
-    }
+void UDPTransport::send(Json::Object &msg, bool broadcast) {
+    struct UDPEndpoint *dst = known_guids.get(msg["dst"].asString());
+    dst = dst ? dst : &this->broadcast;
+    sendmsg(&udp, msg, dst);
 }
 
 Json::Value UDPTransport::recv() {

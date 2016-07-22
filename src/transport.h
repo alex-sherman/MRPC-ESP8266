@@ -6,7 +6,7 @@ namespace MRPC {
     public:
         bool poll();
         void close();
-        virtual void send(Json::Object&) = 0;
+        virtual void send(Json::Object&, bool broadcast) = 0;
         virtual Json::Value recv() = 0;
     };
     struct UDPEndpoint {
@@ -17,13 +17,13 @@ namespace MRPC {
     public:
         UDPTransport();
         UDPTransport(int local_port);
-        void send(Json::Object&);
+        void send(Json::Object&, bool broadcast);
         Json::Value recv();
         struct UDPEndpoint *guid_lookup(const char *hex);
+        uint16_t remote_port;
     private:
         struct UDPEndpoint broadcast;
         AMap<struct UDPEndpoint> known_guids;
         WiFiUDP udp;
-        uint16_t remote_port;
     };
 }

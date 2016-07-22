@@ -14,12 +14,10 @@ void setupWiFiAP(const char*);
 bool validWifiSettings();
 int Message::id = 0;
 
-void MRPC::init(int port, const char*prefix) {
-    MRPC::prefix = Path(prefix);
-    use_transport(new UDPTransport(port));
+void MRPC::init(int port) {
+    transport = new UDPTransport(port);
     Message::id = 0;
     guid = UUID();
-    register_service(new Routing());
 
     EEPROM.begin(1024);
     char json[1024];
@@ -76,12 +74,19 @@ void MRPC::poll() {
             kvp.value.data.free_parsed();
         }
     }
-    for(int i = 0; i < transports.size(); i++) {
-        output |= transports[i]->poll();
-    }
-    for (auto &kvp : services)
+
+    transport->poll();
+    unsigned long time = millis();
+    for (auto const& it : publishers)
     {
-        kvp.value->update(millis());
+        Publisher *publisher = it.value;
+        if(publisher->interval == 0) continue;
+        if(time - publisher->last_called > publisher->interval) {
+            publisher->last_called = time;
+            Json::Value result = publisher->method();
+            rpc(publisher->path, result);
+            result.free_parsed();
+        }
     }
 }
 
@@ -170,40 +175,34 @@ bool validWifiSettings() {
     return true;
 }
 
-
-void MRPC::use_transport(Transport *transport) {
-    transports.append(transport);
-}
-
-void MRPC::register_service(Service *service) {
-    services[service->name] = service;
-}
-
-Service &MRPC::create_service(const char* name) {
-    Service *service = new Service(name);
-    register_service(service);
+Service &MRPC::create_service(const char* name, ServiceMethod method) {
+    Service *service = new Service(name, method);
+    services[name] = service;
     return *service;
+}
+
+Publisher &MRPC::create_publisher(const char* name, PublisherMethod method, const char *path, long interval) {
+    Publisher *publisher = new Publisher(method, path, interval);
+    publishers[name] = publisher;
+    return *publisher;
 }
 
 void MRPC::on_recv(Json::Object &msg) {
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
-        Service *service = get_service(path);
-        if(service) {
-            ServiceMethod method = service->get_method(msg["procedure"].asString());
-            if(method) {
+        if(!path.is_valid) return;
+        for(auto &service : services) {
+            if(path.match(service.key, service.value)) {
                 Json::Object &response = 
                     msg["id"].isInt() ? 
                         Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
                         Message::Create(guid.hex, msg["src"].asString());
                 Json::Value msg_value = msg["value"];
                 bool success = true;
-                Json::Value response_value = method(service, msg_value, success);
+                Json::Value response_value = service.value->method(service.value, msg_value, success);
                 response["result"] = response_value;
                 if(success) {
-                    for(int i = 0; i < transports.size(); i++) {
-                        transports[i]->send(response);
-                    }
+                    transport->send(response, false);
                 }
                 delete &response;
             }
@@ -218,26 +217,13 @@ void MRPC::on_recv(Json::Object &msg) {
     }
 }
 
-Result *MRPC::rpc(const char* path, const char* procedure, Json::Value value) {
+Result *MRPC::rpc(const char* path, Json::Value value, bool broadcast) {
     int id = Message::id++;
     Json::Object &msg = Message::Create(id, guid.hex, path);
-    msg["procedure"] = procedure;
     msg["value"] = value;
-    for(int i = 0; i < transports.size(); i++)
-    {
-        transports[i]->send(msg);
-    }
+    transport->send(msg, broadcast);
     //Don't delete the value we passed in
     msg["value"] = 0;
     delete &msg;
     return results.get_create(id);
-}
-
-Service *MRPC::get_service(Path path) {
-    for (auto kvp : services)
-    {
-        if(path.match(kvp.value->path))
-            return kvp.value;
-    }
-    return NULL;
 }

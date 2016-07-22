@@ -27,5 +27,5 @@ bool Message::is_response(Json::Object &msg) {
     return msg["id"].isInt() && (msg["result"].isString() || msg["error"].isString());
 }
 bool Message::is_request(Json::Object &msg) {
-    return msg["procedure"].isString();
+    return !Message::is_response(msg);
 }
