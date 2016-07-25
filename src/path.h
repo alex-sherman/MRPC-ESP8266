@@ -12,7 +12,7 @@ namespace MRPC {
         bool is_uuid = false;
         char name[64];
         char method[64];
-        bool match(const char*service_name, Service *service);
+        bool match(Service *service);
     };
 }
 

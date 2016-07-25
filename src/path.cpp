@@ -34,13 +34,14 @@ Path::Path(const char*path) {
     strcpy(method, _method);
 }
 
-bool Path::match(const char*service_name, Service *service) {
-    if(strcmp(method, service_name) != 0)
+bool Path::match(Service *service) {
+    if(strcmp(method, service->method_name) != 0)
         return false;
     if(is_wildcard)
         return true;
-    for(char *alias : service->aliases) {
-        if(strcmp(alias, name))
+    for(Json::Value &alias : *service->aliases) {
+        if(!alias.isString()) continue;
+        if(strcmp(alias.asString(), name) == 0)
             return true;
     }
     return false;

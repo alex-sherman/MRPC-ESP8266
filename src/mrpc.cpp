@@ -3,6 +3,7 @@
 #include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include "message.h"
+#include "spi_flash.h"
 
 using namespace MRPC;
 
@@ -13,17 +14,31 @@ void handleRoot();
 void setupWiFiAP(const char*);
 bool validWifiSettings();
 int Message::id = 0;
+char eeprom_buffer[1024];
+
+Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
+    if(!value.isArray()) { success = false; return "Takes 2 arguments"; }
+    Json::Array &args = value.asArray();
+    if(!args.size() == 2) { success = false; return "Takes 2 arguments"; }
+    if(!args[0].isString()) { success = false; return "First argument must be string"; }
+    if(!args[1].isObject()) { success = false; return "Second argument must be object"; }
+    const char*name = args[0].asString();
+    if(services.has(name)) {
+        delete &settings()["services"].asObject()[name].asObject();
+        settings()["services"].asObject()[name] = args[1].asObject().clone();
+        services[name]->configure();
+    }
+    return true;
+}
+
 
 void MRPC::init(int port) {
+    EEPROM.begin(sizeof(eeprom_buffer));
+    Serial.println();
     transport = new UDPTransport(port);
     Message::id = 0;
     guid = UUID();
-
-    EEPROM.begin(1024);
-    char json[1024];
-    EEPROM.get(0, json);
-    Serial.print("EEPROM Contents: ");
-    Serial.println(json);
+    create_service("configure_service", &configure_service);
     WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(validWifiSettings()) {
@@ -89,12 +104,33 @@ void MRPC::poll() {
         }
     }
 }
+void eeprom_write(int ee, char *src, size_t length)
+{
+    const byte* p = (const byte*)(const void*)src;
+    unsigned int i;
+    for (i = 0; i < length; i++) {
+        EEPROM.write(ee++, *p++);
+    }
+}
+
+void eeprom_read(int ee, char *dst, size_t length)
+{
+    byte* p = (byte*)(void*)dst;
+    unsigned int i;
+    for (i = 0; i < length; i++) {
+        *p++ = EEPROM.read(ee++);
+    }
+}
+
+class Fuck {
+public:
+    char data[1024];
+};
 
 Json::Object &MRPC::settings() {
     if(eepromJSON == NULL) {
-        char json[1024];
-        EEPROM.get(0, json);
-        Json::Value output = Json::parse(json);
+        eeprom_read(0, eeprom_buffer, sizeof(eeprom_buffer));
+        Json::Value output = Json::parse(eeprom_buffer);
         if(output.isObject()) {
             eepromJSON = &output.asObject();
         }
@@ -105,11 +141,10 @@ Json::Object &MRPC::settings() {
     return *eepromJSON;
 }
 void MRPC::save_settings() {
-    char json[1024];
-    Json::dump(settings(), json, sizeof(json));
+    Json::dump(settings(), eeprom_buffer, sizeof(eeprom_buffer));
     Serial.print("Saving to eeprom: ");
-    Serial.println(json);
-    EEPROM.put(0, json);
+    Serial.println(eeprom_buffer);
+    EEPROM.put(0, eeprom_buffer);
     EEPROM.commit();
 }
 
@@ -192,7 +227,7 @@ void MRPC::on_recv(Json::Object &msg) {
         Path path = Path(msg["dst"].asString());
         if(!path.is_valid) return;
         for(auto &service : services) {
-            if(path.match(service.key, service.value)) {
+            if(path.match(service.value)) {
                 Json::Object &response = 
                     msg["id"].isInt() ? 
                         Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
@@ -200,10 +235,13 @@ void MRPC::on_recv(Json::Object &msg) {
                 Json::Value msg_value = msg["value"];
                 bool success = true;
                 Json::Value response_value = service.value->method(service.value, msg_value, success);
-                response["result"] = response_value;
                 if(success) {
-                    transport->send(response, false);
+                    response["result"] = response_value;
                 }
+                else {
+                    response["error"] = response_value;
+                }
+                transport->send(response, false);
                 delete &response;
             }
         }

@@ -6,6 +6,8 @@
 
 namespace MRPC {
 
+    Json::Object &settings();
+
     class Service;
     typedef Json::Value (*ServiceMethod)(Service* self, Json::Value& value, bool& success);
     typedef Json::Value (*PublisherMethod)();
@@ -24,19 +26,30 @@ namespace MRPC {
 
     class Service {
     public:
-        Service(const char *method_name, ServiceMethod method) {
-            strncpy(this->method_name, method_name, sizeof(this->method_name));
+        Service(const char* name, ServiceMethod method) {
+            strncpy(this->name, name, sizeof(this->name));
+            configure();
             this->method = method;
         }
-        Service& respond(const char* alias) {
-            char *buf = (char*)malloc(strlen(alias));
-            strcpy(buf, alias);
-            aliases.append(buf);
-            return *this;
+        Json::Object &configure() {
+            if(!settings()["services"].isObject())
+                settings()["services"] = new Json::Object();
+            Json::Object &services = settings()["services"].asObject();
+            if(!services[name].isObject())
+                services[name] = new Json::Object();
+            Json::Object &service = services[name].asObject();
+            if(!service["name"].isString())
+                service["name"] = name;
+            method_name = service["name"].asString();
+            if(!service["aliases"].isArray())
+                service["aliases"] = new Json::Array();
+            aliases = &service["aliases"].asArray();
+            return services[name].asObject();
         }
         ServiceMethod method;
-        char method_name[64];
-        AList<char *> aliases;
+        char name[64];
+        const char *method_name;
+        Json::Array *aliases;
     };
 }
 
