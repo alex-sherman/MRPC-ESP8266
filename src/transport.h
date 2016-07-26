@@ -23,7 +23,7 @@ namespace MRPC {
         uint16_t remote_port;
     private:
         struct UDPEndpoint broadcast;
-        AMap<struct UDPEndpoint> known_guids;
+        KeyValuePair<struct UDPEndpoint> last_sender;
         WiFiUDP udp;
     };
 }

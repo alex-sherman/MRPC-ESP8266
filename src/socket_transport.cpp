@@ -28,8 +28,8 @@ void sendmsg(WiFiUDP *udp, Json::Object &msg, struct UDPEndpoint *address) {
 }
 
 void UDPTransport::send(Json::Object &msg, bool broadcast) {
-    struct UDPEndpoint *dst = known_guids.get(msg["dst"].asString());
-    dst = dst ? dst : &this->broadcast;
+    struct UDPEndpoint *dst = strcmp(msg["dst"].asString(), last_sender.key) == 0 ?
+        &last_sender.value : &this->broadcast;
     sendmsg(&udp, msg, dst);
 }
 
@@ -49,8 +49,9 @@ Json::Value UDPTransport::recv() {
         output = read.asObject();
 
         if(Message::is_valid(output.asObject())) {
-            struct UDPEndpoint remote = {udp.remoteIP(), udp.remotePort()};
-            known_guids.set(output.asObject()["src"].asString(), remote);
+            strncpy(last_sender.key, output.asObject()["src"].asString(), sizeof(last_sender.key));
+            last_sender.value.ip = udp.remoteIP();
+            last_sender.value.port = udp.remotePort();
         }
     }
     return output;
