@@ -1,4 +1,5 @@
 #include "path.h"
+#include "mrpc.h"
 #include <stdlib.h>
 #include <string.h>
 #include <Arduino.h>
@@ -39,7 +40,14 @@ bool Path::match(Service *service) {
         return false;
     if(is_wildcard)
         return true;
+    if(strncmp(name, guid().hex, 32) == 0)
+        return true;
     for(Json::Value &alias : *service->aliases) {
+        if(!alias.isString()) continue;
+        if(strcmp(alias.asString(), name) == 0)
+            return true;
+    }
+    for(auto &alias : settings()["aliases"].asArray()) {
         if(!alias.isString()) continue;
         if(strcmp(alias.asString(), name) == 0)
             return true;

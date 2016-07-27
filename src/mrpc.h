@@ -26,13 +26,13 @@ namespace MRPC {
     class Routing;
     class UUID;
 
-    static UUID guid;
     Service &create_service(const char* name, ServiceMethod method);
     Publisher &create_publisher(const char *name, PublisherMethod method, const char *path, long interval);
     void on_recv(Json::Object&);
     Result *rpc(const char* path, Json::Value value, bool broadcast = false);
     void wait();
 
+    UUID &guid();
     static AMap<Service*> services;
     static AMap<Publisher *> publishers;
     static MRPC::Transport* transport;

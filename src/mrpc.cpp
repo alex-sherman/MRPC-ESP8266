@@ -7,7 +7,8 @@
 
 using namespace MRPC;
 
-Json::Object *eepromJSON;
+Json::Object *eepromJSON = NULL;
+UUID *_guid = NULL;
 ESP8266WebServer server(80);
 void handleConnect();
 void handleRoot();
@@ -16,34 +17,79 @@ bool validWifiSettings();
 int Message::id = 0;
 char eeprom_buffer[1024];
 
+char*configure_service_error = "Argument must be either null, string, or [string, object]";
+
 Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
-    if(!value.isArray()) { success = false; return "Takes 2 arguments"; }
+    Json::Object &service_json = settings()["services"].asObject();
+    if(value.isNull()) { return service_json.clone(); }
+    if(value.isString()) {
+        if(service_json[value.asString()].isObject()) {
+            return service_json[value.asString()].asObject().clone();
+        }
+        else { success = false; return "Uknown service"; }
+    }
+    if(!value.isArray()) { success = false; return configure_service_error; }
     Json::Array &args = value.asArray();
-    if(!args.size() == 2) { success = false; return "Takes 2 arguments"; }
-    if(!args[0].isString()) { success = false; return "First argument must be string"; }
-    if(!args[1].isObject()) { success = false; return "Second argument must be object"; }
+    if(!args.size() == 2 || !args[0].isString() || !args[1].isObject()) {
+        success = false;
+        return configure_service_error;
+    }
     const char*name = args[0].asString();
     if(services.has(name)) {
         delete &settings()["services"].asObject()[name].asObject();
         settings()["services"].asObject()[name] = args[1].asObject().clone();
+        save_settings();
         services[name]->configure();
     }
     return true;
 }
 
+Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
+    return guid().hex;
+}
+
+Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
+    if(value.isNull()) { return settings()["aliases"].asArray().clone(); }
+    else if(value.isString()) {
+        bool add = true;
+        for(auto &alias : settings()["aliases"].asArray()) {
+            if(strcmp(alias.asString(), value.asString()) == 0) {
+                add = false;
+                break;
+            }
+        }
+        if(add) {
+            settings()["aliases"].asArray().append(value.asString());
+            save_settings();
+        }
+    }
+    else if(value.isArray()) { settings()["aliases"].free_parsed(); settings()["aliases"] = value.asArray().clone(); save_settings(); }
+    else { success = false; return "Argument must be either null, string, or [string,]"; }
+    return true;
+}
+
+UUID &MRPC::guid() {
+    if(_guid == NULL) {
+        if(!settings()["uuid"].isString() || !UUID::is(settings()["uuid"].asString())) {
+            settings()["uuid"] = UUID().hex;
+            save_settings();
+        }
+        _guid = new UUID(settings()["uuid"].asString());
+    }
+    return *_guid;
+}
 
 void MRPC::init(int port) {
     EEPROM.begin(sizeof(eeprom_buffer));
     Serial.println();
     transport = new UDPTransport(port);
     Message::id = 0;
-    if(!settings()["uuid"].isString() || !UUID::is(settings()["uuid"].asString())) {
-        settings()["uuid"] = UUID().hex;
-        save_settings();
-    }
-    guid = UUID(settings()["uuid"].asString());
-    Serial.println(guid.hex);
+    if(!settings()["aliases"].isArray())
+        settings()["aliases"] = new Json::Array();
+    Serial.println(guid().hex);
     create_service("configure_service", &configure_service);
+    create_service("uuid", &uuid_service);
+    create_service("alias", &alias_service);
     WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(validWifiSettings()) {
@@ -235,8 +281,8 @@ void MRPC::on_recv(Json::Object &msg) {
             if(path.match(service.value)) {
                 Json::Object &response = 
                     msg["id"].isInt() ? 
-                        Message::Create(msg["id"].asInt(), guid.hex, msg["src"].asString()) :
-                        Message::Create(guid.hex, msg["src"].asString());
+                        Message::Create(msg["id"].asInt(), guid().hex, msg["src"].asString()) :
+                        Message::Create(guid().hex, msg["src"].asString());
                 Json::Value msg_value = msg["value"];
                 bool success = true;
                 Json::Value response_value = service.value->method(service.value, msg_value, success);
@@ -262,7 +308,7 @@ void MRPC::on_recv(Json::Object &msg) {
 
 Result *MRPC::rpc(const char* path, Json::Value value, bool broadcast) {
     int id = Message::id++;
-    Json::Object &msg = Message::Create(id, guid.hex, path);
+    Json::Object &msg = Message::Create(id, guid().hex, path);
     msg["value"] = value;
     transport->send(msg, broadcast);
     //Don't delete the value we passed in
