@@ -17,11 +17,10 @@
 
 namespace MRPC {
     void init(int port = 50123);
-    void respond(const char *name);
     void poll();
     Json::Object &settings();
     void save_settings();
-    class Transport;
+    class UDPTransport;
     class Service;
     class Routing;
     class UUID;
@@ -35,7 +34,7 @@ namespace MRPC {
     UUID &guid();
     static AMap<Service*> services;
     static AMap<Publisher *> publishers;
-    static MRPC::Transport* transport;
+    static MRPC::UDPTransport* transport;
     static AMap<Result> results;
 
     static AList<char*> aliases;

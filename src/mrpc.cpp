@@ -86,6 +86,7 @@ void MRPC::init(int port) {
     Message::id = 0;
     if(!settings()["aliases"].isArray())
         settings()["aliases"] = new Json::Array();
+    Serial.print("Device UUID: ");
     Serial.println(guid().hex);
     create_service("configure_service", &configure_service);
     create_service("uuid", &uuid_service);
@@ -93,13 +94,11 @@ void MRPC::init(int port) {
     WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(validWifiSettings()) {
-        Serial.println("Found wifi settings:");
+        Serial.print("Found wifi settings, connecting to ");
         Json::Object &wifi_settings = settings()["wifi"].asObject();
-        Json::print(wifi_settings, Serial);
-        Serial.println();
+        Serial.println(wifi_settings["ssid"].asString());
 
         WiFi.begin(wifi_settings["ssid"].asString(), wifi_settings["password"].asString());
-        Serial.println("Connecting to WiFi");
         for(int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) {
             delay(500);
             Serial.print(".");
@@ -107,8 +106,6 @@ void MRPC::init(int port) {
         Serial.println();
         if(WiFi.status() == WL_CONNECTED) {
             Serial.println("Connection successful");
-            Serial.print("IP address: ");
-            Serial.println(WiFi.localIP());
             createAP = false;
         }
         else
@@ -124,6 +121,8 @@ void MRPC::init(int port) {
         Serial.println("Creating AP");
         setupWiFiAP("password");
     }
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
     Serial.println("Starting server");
     server.on("/", HTTP_GET, handleRoot);
     server.on("/connect", HTTP_GET, handleConnect);
@@ -155,6 +154,7 @@ void MRPC::poll() {
         }
     }
 }
+
 void eeprom_write(int ee, char *src, size_t length)
 {
     const byte* p = (const byte*)(const void*)src;
