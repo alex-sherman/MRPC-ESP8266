@@ -7,7 +7,7 @@ namespace MRPC {
         static bool is(const char* test);
         UUID(const char* hex);
         UUID();
-        const char* hex;
+        char hex[33];
     };
 }
 

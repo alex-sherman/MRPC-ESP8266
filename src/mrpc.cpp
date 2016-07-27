@@ -37,7 +37,12 @@ void MRPC::init(int port) {
     Serial.println();
     transport = new UDPTransport(port);
     Message::id = 0;
-    guid = UUID();
+    if(!settings()["uuid"].isString() || !UUID::is(settings()["uuid"].asString())) {
+        settings()["uuid"] = UUID().hex;
+        save_settings();
+    }
+    guid = UUID(settings()["uuid"].asString());
+    Serial.println(guid.hex);
     create_service("configure_service", &configure_service);
     WiFi.mode(WIFI_STA);
     bool createAP = true;
@@ -113,23 +118,23 @@ void eeprom_write(int ee, char *src, size_t length)
     }
 }
 
-void eeprom_read(int ee, char *dst, size_t length)
+void eeprom_read_string(int ee, char *dst, size_t length)
 {
     byte* p = (byte*)(void*)dst;
     unsigned int i;
     for (i = 0; i < length; i++) {
-        *p++ = EEPROM.read(ee++);
+        byte r = EEPROM.read(ee++);
+        *p++ = r;
+        if(r == 0)
+            break;
     }
+    for(; i < length; i++)
+        *p++ = 0;
 }
-
-class Fuck {
-public:
-    char data[1024];
-};
 
 Json::Object &MRPC::settings() {
     if(eepromJSON == NULL) {
-        eeprom_read(0, eeprom_buffer, sizeof(eeprom_buffer));
+        eeprom_read_string(0, eeprom_buffer, sizeof(eeprom_buffer));
         Json::Value output = Json::parse(eeprom_buffer);
         if(output.isObject()) {
             eepromJSON = &output.asObject();
