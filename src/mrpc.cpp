@@ -11,6 +11,7 @@ Json::Object *eepromJSON = NULL;
 UUID *_guid = NULL;
 ESP8266WebServer server(80);
 void handleConnect();
+void handleReset();
 void handleRoot();
 void setupWiFiAP(const char*);
 bool validWifiSettings();
@@ -19,6 +20,14 @@ char eeprom_buffer[1024];
 
 char*configure_service_error = "Argument must be either null, string, or [string, object]";
 
+Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
+    if(value.isBool() && value.asBool()) {
+        eepromJSON = new Json::Object();
+        save_settings();
+        return true;
+    }
+    return false;
+}
 Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
     Json::Object &service_json = settings()["services"].asObject();
     if(value.isNull()) { return service_json.clone(); }
@@ -45,7 +54,7 @@ Json::Value configure_service(Service *self, Json::Value &value, bool &success) 
 }
 
 Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
-    return guid().hex;
+    return guid().chars;
 }
 
 Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
@@ -71,7 +80,7 @@ Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
 UUID &MRPC::guid() {
     if(_guid == NULL) {
         if(!settings()["uuid"].isString() || !UUID::is(settings()["uuid"].asString())) {
-            settings()["uuid"] = UUID().hex;
+            settings()["uuid"] = UUID().chars;
             save_settings();
         }
         _guid = new UUID(settings()["uuid"].asString());
@@ -87,10 +96,11 @@ void MRPC::init(int port) {
     if(!settings()["aliases"].isArray())
         settings()["aliases"] = new Json::Array();
     Serial.print("Device UUID: ");
-    Serial.println(guid().hex);
+    Serial.println(guid().chars);
     create_service("configure_service", &configure_service);
     create_service("uuid", &uuid_service);
     create_service("alias", &alias_service);
+    create_service("reset", &reset_service);
     WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(validWifiSettings()) {
@@ -126,6 +136,7 @@ void MRPC::init(int port) {
     Serial.println("Starting server");
     server.on("/", HTTP_GET, handleRoot);
     server.on("/connect", HTTP_GET, handleConnect);
+    server.on("/reset", HTTP_GET, handleReset);
     server.begin();
 }
 
@@ -242,6 +253,11 @@ void handleRoot() {
     server.send(200, "text/html", response);
 }
 
+void handleReset() {
+    eepromJSON = new Json::Object();
+    save_settings();
+    ESP.restart();
+}
 void handleConnect() {
     if(server.hasArg("ssid") && server.hasArg("password")) {
         Json::Object &wifi_settings = settings()["wifi"].asObject();
@@ -249,6 +265,7 @@ void handleConnect() {
         wifi_settings["password"] = server.arg("password");
         save_settings();
         server.send(200, "text/html", "Successfully saved settings");
+        ESP.restart();
     }
     else
         server.send(500, "text/html", "Missing ssid or password");
@@ -281,8 +298,8 @@ void MRPC::on_recv(Json::Object &msg) {
             if(path.match(service.value)) {
                 Json::Object &response = 
                     msg["id"].isInt() ? 
-                        Message::Create(msg["id"].asInt(), guid().hex, msg["src"].asString()) :
-                        Message::Create(guid().hex, msg["src"].asString());
+                        Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
+                        Message::Create(guid().chars, msg["src"].asString());
                 Json::Value msg_value = msg["value"];
                 bool success = true;
                 Json::Value response_value = service.value->method(service.value, msg_value, success);
@@ -308,7 +325,7 @@ void MRPC::on_recv(Json::Object &msg) {
 
 Result *MRPC::rpc(const char* path, Json::Value value, bool broadcast) {
     int id = Message::id++;
-    Json::Object &msg = Message::Create(id, guid().hex, path);
+    Json::Object &msg = Message::Create(id, guid().chars, path);
     msg["value"] = value;
     transport->send(msg, broadcast);
     //Don't delete the value we passed in

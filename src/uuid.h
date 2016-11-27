@@ -5,9 +5,9 @@ namespace MRPC {
     class UUID {
     public:
         static bool is(const char* test);
-        UUID(const char* hex);
+        UUID(const char* chars);
         UUID();
-        char hex[33];
+        char chars[37];
     };
 }
 

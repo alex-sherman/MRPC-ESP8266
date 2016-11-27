@@ -40,7 +40,7 @@ bool Path::match(Service *service) {
         return false;
     if(is_wildcard)
         return true;
-    if(strncmp(name, guid().hex, 32) == 0)
+    if(strncmp(name, guid().chars, 36) == 0)
         return true;
     for(Json::Value &alias : *service->aliases) {
         if(!alias.isString()) continue;

@@ -13,7 +13,7 @@ bool UDPTransport::poll() {
         if(!msg.isObject() || !Message::is_valid(msg.asObject()))
             ret = false;
         else {
-            if(strcmp(msg.asObject()["src"].asString(), MRPC::guid().hex))
+            if(strcmp(msg.asObject()["src"].asString(), MRPC::guid().chars))
                 MRPC::on_recv(msg.asObject());
         }
         msg.free_parsed();

@@ -24,20 +24,24 @@ hex_char byte_to_hex(uint8_t b) {
 
 UUID::UUID() {
     randomSeed((int)RANDOM_REG32);
-    for(int i = 0; i < 16; i++) {
+    for(int i = 0; i < 36; i+=2) {
         uint8_t b = random(256);
         if(i == 6) b = 0x40 | (b & 0x0F);
         if(i == 8) b = 0x80 | (b & 0x0F);
         hex_char h = byte_to_hex(b);
-        this->hex[i * 2] = h.hex[0];
-        this->hex[i * 2 + 1] = h.hex[1];
+        this->chars[i] = h.hex[0];
+        this->chars[i + 1] = h.hex[1];
     }
-    this->hex[32] = 0;
+    this->chars[8] = '-';
+    this->chars[13] = '-';
+    this->chars[18] = '-';
+    this->chars[23] = '-';
+    this->chars[36] = 0;
 }
-UUID::UUID(const char* hex) {
-    strncpy(this->hex, hex, sizeof(this->hex));
-    this->hex[32] = 0;
+UUID::UUID(const char* chars) {
+    strncpy(this->chars, chars, sizeof(this->chars));
+    this->chars[36] = 0;
 }
-bool UUID::is(const char* hex) {
-    return strlen(hex) == 32;
+bool UUID::is(const char* chars) {
+    return strlen(chars) == 36;
 }
