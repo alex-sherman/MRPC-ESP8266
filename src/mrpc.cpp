@@ -4,9 +4,11 @@
 #include <ESP8266WiFi.h>
 #include "message.h"
 #include "spi_flash.h"
+#include "mrpc_wifi.h"
 
 using namespace MRPC;
 
+MRPCWifi mrpcWifi;
 Json::Object *eepromJSON = NULL;
 UUID *_guid = NULL;
 ESP8266WebServer server(80);
@@ -24,6 +26,7 @@ Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
     if(value.isBool() && value.asBool()) {
         eepromJSON = new Json::Object();
         save_settings();
+        ESP.restart();
         return true;
     }
     return false;
@@ -55,6 +58,12 @@ Json::Value configure_service(Service *self, Json::Value &value, bool &success) 
 
 Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
     return guid().chars;
+}
+Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &success) {
+    settings()["wifi"] = value;
+    save_settings();
+    ESP.restart();
+    return true;
 }
 
 Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
@@ -101,36 +110,17 @@ void MRPC::init(int port) {
     create_service("uuid", &uuid_service);
     create_service("alias", &alias_service);
     create_service("reset", &reset_service);
-    WiFi.mode(WIFI_STA);
+    create_service("wifi", &wifi_settings_service);
+    WiFi.mode(WIFI_AP_STA);
     bool createAP = true;
-    if(validWifiSettings()) {
-        Serial.print("Found wifi settings, connecting to ");
-        Json::Object &wifi_settings = settings()["wifi"].asObject();
-        Serial.println(wifi_settings["ssid"].asString());
-
-        WiFi.begin(wifi_settings["ssid"].asString(), wifi_settings["password"].asString());
-        for(int i = 0; i < 40 && WiFi.status() != WL_CONNECTED; i++) {
-            delay(500);
-            Serial.print(".");
-        }
-        Serial.println();
-        if(WiFi.status() == WL_CONNECTED) {
-            Serial.println("Connection successful");
-            createAP = false;
-        }
-        else
-            Serial.println("Connection failed");
-    }
-    else {
+    if(!settings()["wifi"].isObject()) {
         Serial.println("Couldn't find WiFi settings");
         settings()["wifi"] = *(new Json::Object());
         Json::println(settings(), Serial);
     }
 
-    if(createAP) {
-        Serial.println("Creating AP");
-        setupWiFiAP("password");
-    }
+    Json::Object &wifi_settings = settings()["wifi"].asObject();
+    mrpcWifi.connect(wifi_settings);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
     Serial.println("Starting server");
@@ -208,28 +198,6 @@ void MRPC::save_settings() {
     Serial.println(eeprom_buffer);
     EEPROM.put(0, eeprom_buffer);
     EEPROM.commit();
-}
-
-void setupWiFiAP(const char *password)
-{
-    WiFi.mode(WIFI_AP);
-
-// Do a little work to get a unique-ish name. Append the
-// last two bytes of the MAC (HEX'd) to "Thing-":
-    uint8_t mac[WL_MAC_ADDR_LENGTH];
-    WiFi.softAPmacAddress(mac);
-    String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
-    String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
-    macID.toUpperCase();
-    String AP_NameString = "MRPC " + macID;
-
-    char AP_NameChar[AP_NameString.length() + 1];
-    memset(AP_NameChar, 0, AP_NameString.length() + 1);
-
-    for (int i=0; i<AP_NameString.length(); i++)
-        AP_NameChar[i] = AP_NameString.charAt(i);
-    WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
-    WiFi.softAP(AP_NameChar, password);
 }
 
 void handleRoot() {
