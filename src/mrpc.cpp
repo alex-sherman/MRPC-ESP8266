@@ -266,24 +266,24 @@ Publisher &MRPC::create_publisher(const char* name, PublisherMethod method, cons
 }
 
 void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
+    Serial.print("Got from ");
+    Serial.println(from.ip);
+    Json::println(msg, Serial);
+    struct UDPEndpoint forward_dst, dst;
+    if(MRPCWifi::is_client(from.ip)) {
+        forward_dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
+        dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
+    }
+    if(MRPCWifi::is_ap(from.ip)) {
+        forward_dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
+        dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
+    }
+    Serial.print("Forwarding: ");
+    Serial.println(forward_dst.ip);
+    transport->senddst(msg, &forward_dst);
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
         if(!path.is_valid) return;
-        Serial.print("Got from ");
-        Serial.println(from.ip);
-        Json::println(msg, Serial);
-        struct UDPEndpoint forward_dst, dst;
-        if(MRPCWifi::is_client(from.ip)) {
-            forward_dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
-            dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
-        }
-        if(MRPCWifi::is_ap(from.ip)) {
-            forward_dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
-            dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
-        }
-        Serial.print("Forwarding: ");
-        Serial.println(forward_dst.ip);
-        transport->senddst(msg, &forward_dst);
         for(auto &service : services) {
             if(path.match(service.value)) {
                 Serial.println("Responding");
@@ -292,6 +292,8 @@ void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
                         Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
                         Message::Create(guid().chars, msg["src"].asString());
                 Json::Value msg_value = msg["value"];
+                if(msg_value.isInvalid())
+                    msg_value = Json::Value::null();
                 bool success = true;
                 Json::Value response_value = service.value->method(service.value, msg_value, success);
                 if(success) {

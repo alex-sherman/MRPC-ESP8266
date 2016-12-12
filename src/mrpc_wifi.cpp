@@ -26,7 +26,7 @@ void MRPCWifi::connect(Json::Object &wifi_settings) {
         ap_netmask = IPAddress(255, 255, 255, 0);
     }
 
-    if(wifi_settings["mesh_ssid"].isString()) {
+    if(WiFi.status() != WL_CONNECTED && wifi_settings["mesh_ssid"].isString()) {
         WiFi.disconnect();
         Serial.print("Connecting to mesh ");
         Serial.println(wifi_settings["mesh_ssid"].asString());

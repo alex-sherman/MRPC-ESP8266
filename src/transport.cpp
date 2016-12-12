@@ -42,7 +42,6 @@ UDPTransport::UDPTransport(int local_port) {
 }
 
 void UDPTransport::senddst(Json::Object &msg, struct UDPEndpoint *address) {
-    Serial.println(address->ip);
     size_t len = Json::measure(msg);
     char buffer[len];
     Json::dump(msg, buffer, sizeof(buffer));
@@ -65,8 +64,6 @@ Json::Value UDPTransport::recv(UDPEndpoint *from) {
         udp.read(buffer, 1023);
         from->ip = udp.remoteIP();
         from->port = udp.remotePort();
-        Serial.print("Got from ");
-        Serial.println(from->ip);
         buffer[cb + 1] = 0;
         Json::Value read = Json::parse(buffer);
         if(!read.isObject()) {
