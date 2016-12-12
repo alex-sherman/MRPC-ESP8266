@@ -27,8 +27,8 @@ namespace MRPC {
 
     Service &create_service(const char* name, ServiceMethod method);
     Publisher &create_publisher(const char *name, PublisherMethod method, const char *path, long interval);
-    void on_recv(Json::Object&);
-    Result *rpc(const char* path, Json::Value value, bool broadcast = false);
+    void on_recv(Json::Object&, UDPEndpoint);
+    Result *rpc(const char* path, Json::Value value);
     void wait();
 
     UUID &guid();

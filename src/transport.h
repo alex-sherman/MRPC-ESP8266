@@ -11,8 +11,9 @@ namespace MRPC {
         UDPTransport(int local_port);
         bool poll();
         void close();
-        void send(Json::Object&, bool broadcast);
-        Json::Value recv();
+        void send(Json::Object& msg);
+        void senddst(Json::Object &msg, struct UDPEndpoint *address);
+        Json::Value recv(UDPEndpoint *);
         struct UDPEndpoint *guid_lookup(const char *hex);
         uint16_t remote_port;
     private:

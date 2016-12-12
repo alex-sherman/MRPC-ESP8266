@@ -216,6 +216,11 @@ void handleRoot() {
     "    </select>\
     <label>Password:</label>\
     <input type=\"password\" name=\"password\">\
+    <BR>\
+    <label>Mesh SSID:</label>\
+    <input type=\"text\" name=\"mesh_ssid\">\
+    <label>Mesh Password:</label>\
+    <input type=\"text\" name=\"mesh_password\">\
     <input type=\"submit\" value=\"Connect\">\
     </form>";
     server.send(200, "text/html", response);
@@ -231,6 +236,8 @@ void handleConnect() {
         Json::Object &wifi_settings = settings()["wifi"].asObject();
         wifi_settings["ssid"] = server.arg("ssid");
         wifi_settings["password"] = server.arg("password");
+        wifi_settings["mesh_ssid"] = server.arg("mesh_ssid");
+        wifi_settings["mesh_password"] = server.arg("mesh_password");
         save_settings();
         server.send(200, "text/html", "Successfully saved settings");
         ESP.restart();
@@ -258,12 +265,28 @@ Publisher &MRPC::create_publisher(const char* name, PublisherMethod method, cons
     return *publisher;
 }
 
-void MRPC::on_recv(Json::Object &msg) {
+void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
         if(!path.is_valid) return;
+        Serial.print("Got from ");
+        Serial.println(from.ip);
+        Json::println(msg, Serial);
+        struct UDPEndpoint forward_dst, dst;
+        if(MRPCWifi::is_client(from.ip)) {
+            forward_dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
+            dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
+        }
+        if(MRPCWifi::is_ap(from.ip)) {
+            forward_dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
+            dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
+        }
+        Serial.print("Forwarding: ");
+        Serial.println(forward_dst.ip);
+        transport->senddst(msg, &forward_dst);
         for(auto &service : services) {
             if(path.match(service.value)) {
+                Serial.println("Responding");
                 Json::Object &response = 
                     msg["id"].isInt() ? 
                         Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
@@ -277,7 +300,7 @@ void MRPC::on_recv(Json::Object &msg) {
                 else {
                     response["error"] = response_value;
                 }
-                transport->send(response, false);
+                transport->senddst(response, &dst);
                 delete &response;
             }
         }
@@ -291,11 +314,11 @@ void MRPC::on_recv(Json::Object &msg) {
     }
 }
 
-Result *MRPC::rpc(const char* path, Json::Value value, bool broadcast) {
+Result *MRPC::rpc(const char* path, Json::Value value) {
     int id = Message::id++;
     Json::Object &msg = Message::Create(id, guid().chars, path);
     msg["value"] = value;
-    transport->send(msg, broadcast);
+    transport->send(msg);
     //Don't delete the value we passed in
     msg["value"] = 0;
     delete &msg;
