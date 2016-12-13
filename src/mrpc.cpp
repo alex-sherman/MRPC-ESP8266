@@ -8,6 +8,8 @@
 
 using namespace MRPC;
 
+Json::Value doRPC(Path path, Json::Value value, bool &success);
+
 MRPCWifi mrpcWifi;
 Json::Object *eepromJSON = NULL;
 UUID *_guid = NULL;
@@ -130,7 +132,46 @@ void MRPC::init(int port) {
     server.begin();
 }
 
+String inputString = "";
+boolean stringComplete = false;
+void handleSerialRPC() {
+    while (Serial.available()) {
+        char inChar = (char)Serial.read();
+        inputString += inChar;
+        if (inChar == '\n')
+            stringComplete = true;
+    }
+    if(stringComplete) {
+        String pathString = "";
+        String valueString = "";
+        int i = 0;
+        for(; i < inputString.length() && inputString[i] != '\n'; i++) {
+            if(inputString[i] == '(')
+                break;
+            pathString += inputString[i];
+        }
+        i++;
+        for(; i < inputString.length() && inputString[i] != '\n'; i++) {
+            if(inputString[i] == ')')
+                break;
+            valueString += inputString[i];
+        }
+        Serial.println(pathString);
+        Path path = Path(pathString.c_str());
+        Json::Value value = Json::parse(valueString.c_str());
+        bool success = true;
+        Json::Value result = doRPC(path, value, success);
+        Json::println(result, Serial);
+        value.free_parsed();
+        result.free_parsed();
+
+        inputString = "";
+        stringComplete = false;
+    }
+}
+
 void MRPC::poll() {
+    handleSerialRPC();
     server.handleClient();
 
     bool output = false;
@@ -265,6 +306,17 @@ Publisher &MRPC::create_publisher(const char* name, PublisherMethod method, cons
     return *publisher;
 }
 
+Json::Value doRPC(Path path, Json::Value value, bool &success) {
+    if(!path.is_valid) return Json::Value::invalid();
+    for(auto &service : services) {
+        if(path.match(service.value)) {
+            Serial.println("Responding");
+            return service.value->method(service.value, value, success);
+        }
+    }
+    return Json::Value::invalid();
+}
+
 void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
     Serial.print("Got from ");
     Serial.println(from.ip);
@@ -283,28 +335,21 @@ void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
     transport->senddst(msg, &forward_dst);
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
-        if(!path.is_valid) return;
-        for(auto &service : services) {
-            if(path.match(service.value)) {
-                Serial.println("Responding");
-                Json::Object &response = 
-                    msg["id"].isInt() ? 
-                        Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
-                        Message::Create(guid().chars, msg["src"].asString());
-                Json::Value msg_value = msg["value"];
-                if(msg_value.isInvalid())
-                    msg_value = Json::Value::null();
-                bool success = true;
-                Json::Value response_value = service.value->method(service.value, msg_value, success);
-                if(success) {
-                    response["result"] = response_value;
-                }
-                else {
-                    response["error"] = response_value;
-                }
-                transport->senddst(response, &dst);
-                delete &response;
+        bool success = true;
+        Json::Value response_value = doRPC(path, msg["value"], success);
+        if(!response_value.isInvalid()) {
+            Json::Object &response =
+                msg["id"].isInt() ?
+                    Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
+                    Message::Create(guid().chars, msg["src"].asString());
+            if(success) {
+                response["result"] = response_value;
             }
+            else {
+                response["error"] = response_value;
+            }
+            transport->senddst(response, &dst);
+            delete &response;
         }
     }
     else if(Message::is_response(msg)) {
