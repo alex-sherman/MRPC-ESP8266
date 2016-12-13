@@ -35,7 +35,7 @@ Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
 }
 Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
     Json::Object &service_json = settings()["services"].asObject();
-    if(value.isNull()) { return service_json.clone(); }
+    if(value.isNull() || value.isInvalid()) { return service_json.clone(); }
     if(value.isString()) {
         if(service_json[value.asString()].isObject()) {
             return service_json[value.asString()].asObject().clone();
@@ -69,7 +69,7 @@ Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &succe
 }
 
 Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
-    if(value.isNull()) { return settings()["aliases"].asArray().clone(); }
+    if(value.isNull() || value.isInvalid()) { return settings()["aliases"].asArray().clone(); }
     else if(value.isString()) {
         bool add = true;
         for(auto &alias : settings()["aliases"].asArray()) {
@@ -142,7 +142,7 @@ void handleSerialRPC() {
             stringComplete = true;
     }
     if(stringComplete) {
-        String pathString = "";
+        String pathString = "*.";
         String valueString = "";
         int i = 0;
         for(; i < inputString.length() && inputString[i] != '\n'; i++) {
@@ -156,7 +156,6 @@ void handleSerialRPC() {
                 break;
             valueString += inputString[i];
         }
-        Serial.println(pathString);
         Path path = Path(pathString.c_str());
         Json::Value value = Json::parse(valueString.c_str());
         bool success = true;
@@ -310,7 +309,6 @@ Json::Value doRPC(Path path, Json::Value value, bool &success) {
     if(!path.is_valid) return Json::Value::invalid();
     for(auto &service : services) {
         if(path.match(service.value)) {
-            Serial.println("Responding");
             return service.value->method(service.value, value, success);
         }
     }
@@ -318,8 +316,6 @@ Json::Value doRPC(Path path, Json::Value value, bool &success) {
 }
 
 void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
-    Serial.print("Got from ");
-    Serial.println(from.ip);
     Json::println(msg, Serial);
     struct UDPEndpoint forward_dst, dst;
     if(MRPCWifi::is_client(from.ip)) {
@@ -330,8 +326,6 @@ void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
         forward_dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
         dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
     }
-    Serial.print("Forwarding: ");
-    Serial.println(forward_dst.ip);
     transport->senddst(msg, &forward_dst);
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
