@@ -1,6 +1,5 @@
 #include "mrpc.h"
 #include <EEPROM.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include "message.h"
 #include "spi_flash.h"
@@ -13,14 +12,11 @@ Json::Value doRPC(Path path, Json::Value value, bool &success);
 MRPCWifi mrpcWifi;
 Json::Object *eepromJSON = NULL;
 UUID *_guid = NULL;
-ESP8266WebServer server(80);
-void handleConnect();
-void handleReset();
-void handleRoot();
-void setupWiFiAP(const char*);
 bool validWifiSettings();
 int Message::id = 0;
 char eeprom_buffer[1024];
+void initWebserver();
+void pollWebserver();
 
 char*configure_service_error = "Argument must be either null, string, or [string, object]";
 
@@ -102,6 +98,7 @@ UUID &MRPC::guid() {
 void MRPC::init(int port) {
     EEPROM.begin(sizeof(eeprom_buffer));
     Serial.println();
+    initWebserver();
     transport = new UDPTransport(port);
     Message::id = 0;
     if(!settings()["aliases"].isArray())
@@ -120,16 +117,8 @@ void MRPC::init(int port) {
         settings()["wifi"] = *(new Json::Object());
         Json::println(settings(), Serial);
     }
-
-    Json::Object &wifi_settings = settings()["wifi"].asObject();
-    mrpcWifi.connect(wifi_settings);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-    Serial.println("Starting server");
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/connect", HTTP_GET, handleConnect);
-    server.on("/reset", HTTP_GET, handleReset);
-    server.begin();
 }
 
 String inputString = "";
@@ -171,8 +160,8 @@ void handleSerialRPC() {
 
 void MRPC::poll() {
     handleSerialRPC();
-    server.handleClient();
-
+    pollWebserver();
+    mrpcWifi.poll();
     bool output = false;
     for(auto &kvp : results) {
         if(kvp.valid && kvp.value.stale()) {
@@ -240,52 +229,6 @@ void MRPC::save_settings() {
     EEPROM.commit();
 }
 
-void handleRoot() {
-    Serial.println("Scanning networks");
-    int wifi_count = WiFi.scanNetworks();
-    Serial.println("Scan done");
-    String response =
-    "<form action=\"/connect\" method=\"get\">\
-    <label>SSID:</label>\
-    <select name=\"ssid\">";
-
-    for(int i = 0; i < wifi_count; i++) {
-        response += "<option value=\"" + WiFi.SSID(i) + "\">" + WiFi.SSID(i) + "</option>\n";
-    }
-    response +=
-    "    </select>\
-    <label>Password:</label>\
-    <input type=\"password\" name=\"password\">\
-    <BR>\
-    <label>Mesh SSID:</label>\
-    <input type=\"text\" name=\"mesh_ssid\">\
-    <label>Mesh Password:</label>\
-    <input type=\"text\" name=\"mesh_password\">\
-    <input type=\"submit\" value=\"Connect\">\
-    </form>";
-    server.send(200, "text/html", response);
-}
-
-void handleReset() {
-    eepromJSON = new Json::Object();
-    save_settings();
-    ESP.restart();
-}
-void handleConnect() {
-    if(server.hasArg("ssid") && server.hasArg("password")) {
-        Json::Object &wifi_settings = settings()["wifi"].asObject();
-        wifi_settings["ssid"] = server.arg("ssid");
-        wifi_settings["password"] = server.arg("password");
-        wifi_settings["mesh_ssid"] = server.arg("mesh_ssid");
-        wifi_settings["mesh_password"] = server.arg("mesh_password");
-        save_settings();
-        server.send(200, "text/html", "Successfully saved settings");
-        ESP.restart();
-    }
-    else
-        server.send(500, "text/html", "Missing ssid or password");
-}
-
 bool validWifiSettings() {
     if(!settings()["wifi"].isObject()) return false;
     Json::Object &wifi_settings = settings()["wifi"].asObject();
@@ -316,16 +259,9 @@ Json::Value doRPC(Path path, Json::Value value, bool &success) {
 }
 
 void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
-    Json::println(msg, Serial);
     struct UDPEndpoint forward_dst, dst;
-    if(MRPCWifi::is_client(from.ip)) {
-        forward_dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
-        dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
-    }
-    if(MRPCWifi::is_ap(from.ip)) {
-        forward_dst = {IPAddress((uint32_t)MRPCWifi::client_addr | ~(uint32_t)MRPCWifi::client_netmask), 50123};
-        dst = {IPAddress((uint32_t)MRPCWifi::ap_addr | ~(uint32_t)MRPCWifi::ap_netmask), 50123};
-    }
+    forward_dst = {MRPCWifi::forward_ip(from.ip), 50123};
+    dst = {MRPCWifi::respond_ip(from.ip), 50123};
     transport->senddst(msg, &forward_dst);
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());

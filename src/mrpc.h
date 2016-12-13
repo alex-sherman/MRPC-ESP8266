@@ -14,6 +14,11 @@
 #include "amap.h"
 #include "transport.h"
 #include "result.h"
+#include <ESP8266WebServer.h>
+
+#ifndef LED_BUILTIN
+#define LED_BUILTIN 2
+#endif
 
 namespace MRPC {
     void init(int port = 50123);
@@ -32,11 +37,11 @@ namespace MRPC {
     void wait();
 
     UUID &guid();
+    static uint led_indicator = LED_BUILTIN;
     static AMap<Service*> services;
     static AMap<Publisher *> publishers;
     static MRPC::UDPTransport* transport;
     static AMap<Result> results;
-
     static AList<char*> aliases;
 }
 
