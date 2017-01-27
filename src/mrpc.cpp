@@ -96,6 +96,7 @@ UUID &MRPC::guid() {
 }
 
 void MRPC::init(int port) {
+    WiFi.persistent(false);
     EEPROM.begin(sizeof(eeprom_buffer));
     Serial.println();
     initWebserver();
