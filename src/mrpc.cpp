@@ -58,10 +58,36 @@ Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
     return guid().chars;
 }
 Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &success) {
-    settings()["wifi"] = value;
-    save_settings();
-    ESP.restart();
-    return true;
+    success = false;
+    if(value.isObject()) {
+        settings()["wifi"].free_parsed();
+        settings()["wifi"] = value;
+        success = true;
+    }
+    else if(value.isArray()) {
+        success = true;
+        settings()["wifi"].free_parsed();
+        Json::Array &value_array = value.asArray();
+        Json::Object &wifi = *new Json::Object();
+        settings()["wifi"] = wifi;
+        if(value_array.size() >= 1)
+            wifi["ssid"] = value_array[0];
+        if(value_array.size() >= 2)
+            wifi["password"] = value_array[1];
+        if(value_array.size() >= 3)
+            wifi["mesh_ssid"] = value_array[2];
+        if(value_array.size() >= 4)
+            wifi["mesh_password"] = value_array[3];
+    }
+    else if(value.isNull()) {
+        success = true;
+        return settings()["wifi"].asObject().clone();
+    }
+    if(success) {
+        save_settings();
+        ESP.restart();
+    }
+    return "Invalid wifi setting value";
 }
 
 Json::Value alias_service(Service *self, Json::Value &value, bool &success) {

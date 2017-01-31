@@ -39,7 +39,6 @@ void MRPCWifi::_onScanDone(Json::Object &wifi_settings) {
             return;
         }
     }
-    Serial.println("Scanning networks");
     WiFi.scanNetworks(true);
 }
 
