@@ -38,6 +38,7 @@ namespace MRPC {
         void _onConnect(Json::Object &);
         void _onScanDone(Json::Object &);
         void setupWiFiAP(const char* password);
+        int failures;
         static IPAddress client_addr;
         static IPAddress client_netmask;
         static IPAddress ap_addr;

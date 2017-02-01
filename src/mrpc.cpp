@@ -61,7 +61,7 @@ Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &succe
     success = false;
     if(value.isObject()) {
         settings()["wifi"].free_parsed();
-        settings()["wifi"] = value;
+        settings()["wifi"] = value.asObject().clone();
         success = true;
     }
     else if(value.isArray()) {
@@ -71,13 +71,13 @@ Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &succe
         Json::Object &wifi = *new Json::Object();
         settings()["wifi"] = wifi;
         if(value_array.size() >= 1)
-            wifi["ssid"] = value_array[0];
+            wifi["ssid"] = value_array[0].asString();
         if(value_array.size() >= 2)
-            wifi["password"] = value_array[1];
+            wifi["password"] = value_array[1].asString();
         if(value_array.size() >= 3)
-            wifi["mesh_ssid"] = value_array[2];
+            wifi["mesh_ssid"] = value_array[2].asString();
         if(value_array.size() >= 4)
-            wifi["mesh_password"] = value_array[3];
+            wifi["mesh_password"] = value_array[3].asString();
     }
     else if(value.isNull()) {
         success = true;
@@ -85,7 +85,7 @@ Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &succe
     }
     if(success) {
         save_settings();
-        ESP.restart();
+        return settings()["wifi"].asObject().clone();
     }
     return "Invalid wifi setting value";
 }
@@ -137,7 +137,7 @@ void MRPC::init(int port) {
     create_service("alias", &alias_service);
     create_service("reset", &reset_service);
     create_service("wifi", &wifi_settings_service);
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(!settings()["wifi"].isObject()) {
         Serial.println("Couldn't find WiFi settings");

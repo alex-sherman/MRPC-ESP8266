@@ -9,6 +9,7 @@ IPAddress MRPCWifi::ap_addr = IPAddress(0,0,0,0);
 
 bool connection_in_progress = false;
 bool connected = false;
+
 void _connect(const char *ssid, const char *password) {
     Serial.print("Connecting to ");
     Serial.println(ssid);
@@ -27,6 +28,7 @@ int match_ssid(String ssid) {
 }
 
 void MRPCWifi::_onScanDone(Json::Object &wifi_settings) {
+    failures ++;
     if(wifi_settings["ssid"].isString()) {
         if(match_ssid(wifi_settings["ssid"].asString()) > 0) {
             _connect(wifi_settings["ssid"].asString(), wifi_settings["password"].asString());
@@ -49,6 +51,8 @@ void MRPCWifi::_onDisconnect() {
 
 void MRPCWifi::_onConnect(Json::Object &wifi_settings) {
     Serial.println("Connected successfuly");
+    failures = 0;
+    WiFi.softAPdisconnect(true);
     client_addr = WiFi.localIP();
     client_netmask = WiFi.subnetMask();
     ap_addr = IPAddress(192, 168, WiFi.localIP()[2] + 1, 1);
@@ -61,6 +65,9 @@ void MRPCWifi::_onConnect(Json::Object &wifi_settings) {
 
 void MRPCWifi::poll() {
     Json::Object &wifi_settings = settings()["wifi"].asObject();
+    if((!wifi_settings["ssid"].isString() || failures > 5) && (WiFi.getMode() & WIFI_AP) == 0) {
+        setupWiFiAP("password");
+    }
     if(WiFi.status() != WL_DISCONNECTED)
         connection_in_progress = false;
     if(WiFi.status() != WL_CONNECTED) {
@@ -72,7 +79,6 @@ void MRPCWifi::poll() {
                 _onScanDone(wifi_settings);
             }
             if(WiFi.scanComplete() < -1 || WiFi.scanComplete() == 0) {
-                Serial.println("Scanning networks");
                 WiFi.scanNetworks(true);
             }
         }
@@ -126,6 +132,7 @@ void MRPCWifi::setupWiFiAP(const char* password) {
 
     for (int i=0; i<AP_NameString.length(); i++)
         AP_NameChar[i] = AP_NameString.charAt(i);
+    WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
     WiFi.softAP(AP_NameChar, password);
 }
