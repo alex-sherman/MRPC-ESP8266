@@ -1,6 +1,5 @@
 #include "mrpc.h"
 #include <EEPROM.h>
-#include <ESP8266WebServer.h>
 #include <ESP8266WiFi.h>
 #include "message.h"
 #include "spi_flash.h"
@@ -8,17 +7,16 @@
 
 using namespace MRPC;
 
+Json::Value doRPC(Path path, Json::Value value, bool &success);
+
 MRPCWifi mrpcWifi;
 Json::Object *eepromJSON = NULL;
 UUID *_guid = NULL;
-ESP8266WebServer server(80);
-void handleConnect();
-void handleReset();
-void handleRoot();
-void setupWiFiAP(const char*);
 bool validWifiSettings();
 int Message::id = 0;
 char eeprom_buffer[1024];
+void initWebserver();
+void pollWebserver();
 
 char*configure_service_error = "Argument must be either null, string, or [string, object]";
 
@@ -33,7 +31,7 @@ Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
 }
 Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
     Json::Object &service_json = settings()["services"].asObject();
-    if(value.isNull()) { return service_json.clone(); }
+    if(value.isNull() || value.isInvalid()) { return service_json.clone(); }
     if(value.isString()) {
         if(service_json[value.asString()].isObject()) {
             return service_json[value.asString()].asObject().clone();
@@ -60,14 +58,40 @@ Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
     return guid().chars;
 }
 Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &success) {
-    settings()["wifi"] = value;
-    save_settings();
-    ESP.restart();
-    return true;
+    success = false;
+    if(value.isObject()) {
+        settings()["wifi"].free_parsed();
+        settings()["wifi"] = value.asObject().clone();
+        success = true;
+    }
+    else if(value.isArray()) {
+        success = true;
+        settings()["wifi"].free_parsed();
+        Json::Array &value_array = value.asArray();
+        Json::Object &wifi = *new Json::Object();
+        settings()["wifi"] = wifi;
+        if(value_array.size() >= 1)
+            wifi["ssid"] = value_array[0].asString();
+        if(value_array.size() >= 2)
+            wifi["password"] = value_array[1].asString();
+        if(value_array.size() >= 3)
+            wifi["mesh_ssid"] = value_array[2].asString();
+        if(value_array.size() >= 4)
+            wifi["mesh_password"] = value_array[3].asString();
+    }
+    else if(value.isNull()) {
+        success = true;
+        return settings()["wifi"].asObject().clone();
+    }
+    if(success) {
+        save_settings();
+        return settings()["wifi"].asObject().clone();
+    }
+    return "Invalid wifi setting value";
 }
 
 Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
-    if(value.isNull()) { return settings()["aliases"].asArray().clone(); }
+    if(value.isNull() || value.isInvalid()) { return settings()["aliases"].asArray().clone(); }
     else if(value.isString()) {
         bool add = true;
         for(auto &alias : settings()["aliases"].asArray()) {
@@ -98,8 +122,10 @@ UUID &MRPC::guid() {
 }
 
 void MRPC::init(int port) {
+    WiFi.persistent(false);
     EEPROM.begin(sizeof(eeprom_buffer));
     Serial.println();
+    initWebserver();
     transport = new UDPTransport(port);
     Message::id = 0;
     if(!settings()["aliases"].isArray())
@@ -111,28 +137,58 @@ void MRPC::init(int port) {
     create_service("alias", &alias_service);
     create_service("reset", &reset_service);
     create_service("wifi", &wifi_settings_service);
-    WiFi.mode(WIFI_AP_STA);
+    WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(!settings()["wifi"].isObject()) {
         Serial.println("Couldn't find WiFi settings");
         settings()["wifi"] = *(new Json::Object());
         Json::println(settings(), Serial);
     }
-
-    Json::Object &wifi_settings = settings()["wifi"].asObject();
-    mrpcWifi.connect(wifi_settings);
     Serial.print("IP address: ");
     Serial.println(WiFi.localIP());
-    Serial.println("Starting server");
-    server.on("/", HTTP_GET, handleRoot);
-    server.on("/connect", HTTP_GET, handleConnect);
-    server.on("/reset", HTTP_GET, handleReset);
-    server.begin();
+}
+
+String inputString = "";
+boolean stringComplete = false;
+void handleSerialRPC() {
+    while (Serial.available()) {
+        char inChar = (char)Serial.read();
+        inputString += inChar;
+        if (inChar == '\n')
+            stringComplete = true;
+    }
+    if(stringComplete) {
+        String pathString = "*.";
+        String valueString = "";
+        int i = 0;
+        for(; i < inputString.length() && inputString[i] != '\n'; i++) {
+            if(inputString[i] == '(')
+                break;
+            pathString += inputString[i];
+        }
+        i++;
+        for(; i < inputString.length() && inputString[i] != '\n'; i++) {
+            if(inputString[i] == ')')
+                break;
+            valueString += inputString[i];
+        }
+        Path path = Path(pathString.c_str());
+        Json::Value value = Json::parse(valueString.c_str());
+        bool success = true;
+        Json::Value result = doRPC(path, value, success);
+        Json::println(result, Serial);
+        value.free_parsed();
+        result.free_parsed();
+
+        inputString = "";
+        stringComplete = false;
+    }
 }
 
 void MRPC::poll() {
-    server.handleClient();
-
+    handleSerialRPC();
+    pollWebserver();
+    mrpcWifi.poll();
     bool output = false;
     for(auto &kvp : results) {
         if(kvp.valid && kvp.value.stale()) {
@@ -200,45 +256,6 @@ void MRPC::save_settings() {
     EEPROM.commit();
 }
 
-void handleRoot() {
-    Serial.println("Scanning networks");
-    int wifi_count = WiFi.scanNetworks();
-    Serial.println("Scan done");
-    String response =
-    "<form action=\"/connect\" method=\"get\">\
-    <label>SSID:</label>\
-    <select name=\"ssid\">";
-
-    for(int i = 0; i < wifi_count; i++) {
-        response += "<option value=\"" + WiFi.SSID(i) + "\">" + WiFi.SSID(i) + "</option>\n";
-    }
-    response +=
-    "    </select>\
-    <label>Password:</label>\
-    <input type=\"password\" name=\"password\">\
-    <input type=\"submit\" value=\"Connect\">\
-    </form>";
-    server.send(200, "text/html", response);
-}
-
-void handleReset() {
-    eepromJSON = new Json::Object();
-    save_settings();
-    ESP.restart();
-}
-void handleConnect() {
-    if(server.hasArg("ssid") && server.hasArg("password")) {
-        Json::Object &wifi_settings = settings()["wifi"].asObject();
-        wifi_settings["ssid"] = server.arg("ssid");
-        wifi_settings["password"] = server.arg("password");
-        save_settings();
-        server.send(200, "text/html", "Successfully saved settings");
-        ESP.restart();
-    }
-    else
-        server.send(500, "text/html", "Missing ssid or password");
-}
-
 bool validWifiSettings() {
     if(!settings()["wifi"].isObject()) return false;
     Json::Object &wifi_settings = settings()["wifi"].asObject();
@@ -258,28 +275,38 @@ Publisher &MRPC::create_publisher(const char* name, PublisherMethod method, cons
     return *publisher;
 }
 
-void MRPC::on_recv(Json::Object &msg) {
+Json::Value doRPC(Path path, Json::Value value, bool &success) {
+    if(!path.is_valid) return Json::Value::invalid();
+    for(auto &service : services) {
+        if(path.match(service.value)) {
+            return service.value->method(service.value, value, success);
+        }
+    }
+    return Json::Value::invalid();
+}
+
+void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
+    struct UDPEndpoint forward_dst, dst;
+    forward_dst = {MRPCWifi::forward_ip(from.ip), 50123};
+    dst = {MRPCWifi::respond_ip(from.ip), 50123};
+    transport->senddst(msg, &forward_dst);
     if(Message::is_request(msg)) {
         Path path = Path(msg["dst"].asString());
-        if(!path.is_valid) return;
-        for(auto &service : services) {
-            if(path.match(service.value)) {
-                Json::Object &response = 
-                    msg["id"].isInt() ? 
-                        Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
-                        Message::Create(guid().chars, msg["src"].asString());
-                Json::Value msg_value = msg["value"];
-                bool success = true;
-                Json::Value response_value = service.value->method(service.value, msg_value, success);
-                if(success) {
-                    response["result"] = response_value;
-                }
-                else {
-                    response["error"] = response_value;
-                }
-                transport->send(response, false);
-                delete &response;
+        bool success = true;
+        Json::Value response_value = doRPC(path, msg["value"], success);
+        if(!response_value.isInvalid()) {
+            Json::Object &response =
+                msg["id"].isInt() ?
+                    Message::Create(msg["id"].asInt(), guid().chars, msg["src"].asString()) :
+                    Message::Create(guid().chars, msg["src"].asString());
+            if(success) {
+                response["result"] = response_value;
             }
+            else {
+                response["error"] = response_value;
+            }
+            transport->senddst(response, &dst);
+            delete &response;
         }
     }
     else if(Message::is_response(msg)) {
@@ -291,11 +318,11 @@ void MRPC::on_recv(Json::Object &msg) {
     }
 }
 
-Result *MRPC::rpc(const char* path, Json::Value value, bool broadcast) {
+Result *MRPC::rpc(const char* path, Json::Value value) {
     int id = Message::id++;
     Json::Object &msg = Message::Create(id, guid().chars, path);
     msg["value"] = value;
-    transport->send(msg, broadcast);
+    transport->send(msg);
     //Don't delete the value we passed in
     msg["value"] = 0;
     delete &msg;

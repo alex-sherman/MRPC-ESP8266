@@ -8,13 +8,21 @@ using namespace MRPC;
 
 bool UDPTransport::poll() {
     bool ret = true;
+    struct UDPEndpoint from;
     for(int i = 0; i < 5 && ret; i++) {
-        Json::Value msg = recv();
+        Json::Value msg = recv(&from);
         if(!msg.isObject() || !Message::is_valid(msg.asObject()))
             ret = false;
         else {
-            if(strcmp(msg.asObject()["src"].asString(), MRPC::guid().chars))
-                MRPC::on_recv(msg.asObject());
+            if(strcmp(msg.asObject()["src"].asString(), MRPC::guid().chars)) {
+
+                if(Message::is_valid(msg.asObject())) {
+                    strncpy(last_sender.key, msg.asObject()["src"].asString(), sizeof(last_sender.key));
+                    last_sender.value = from;
+                }
+
+                MRPC::on_recv(msg.asObject(), from);
+            }
         }
         msg.free_parsed();
         yield();
@@ -29,31 +37,33 @@ UDPTransport::UDPTransport()
 UDPTransport::UDPTransport(int local_port) {
     udp.begin(local_port);
     remote_port = local_port;
-    broadcast.ip = IPAddress(255, 255, 255, 255);
+    broadcast.ip = IPAddress(3, 255, 255, 255);
     broadcast.port = remote_port;
 }
 
-void sendmsg(WiFiUDP *udp, Json::Object &msg, struct UDPEndpoint *address) {
+void UDPTransport::senddst(Json::Object &msg, struct UDPEndpoint *address) {
     size_t len = Json::measure(msg);
     char buffer[len];
     Json::dump(msg, buffer, sizeof(buffer));
-    udp->beginPacket(address->ip, address->port); //NTP requests are to port 123
-    udp->write(buffer, sizeof(buffer));
-    udp->endPacket();
+    udp.beginPacket(address->ip, address->port); //NTP requests are to port 123
+    udp.write(buffer, sizeof(buffer));
+    udp.endPacket();
 }
 
-void UDPTransport::send(Json::Object &msg, bool broadcast) {
+void UDPTransport::send(Json::Object &msg) {
     struct UDPEndpoint *dst = strcmp(msg["dst"].asString(), last_sender.key) == 0 ?
         &last_sender.value : &this->broadcast;
-    sendmsg(&udp, msg, dst);
+    senddst(msg, dst);
 }
 
-Json::Value UDPTransport::recv() {
+Json::Value UDPTransport::recv(UDPEndpoint *from) {
     Json::Value output;
     int cb = udp.parsePacket();
     char buffer[1024];
     if(cb > 0) {
         udp.read(buffer, 1023);
+        from->ip = udp.remoteIP();
+        from->port = udp.remotePort();
         buffer[cb + 1] = 0;
         Json::Value read = Json::parse(buffer);
         if(!read.isObject()) {
@@ -63,11 +73,6 @@ Json::Value UDPTransport::recv() {
 
         output = read.asObject();
 
-        if(Message::is_valid(output.asObject())) {
-            strncpy(last_sender.key, output.asObject()["src"].asString(), sizeof(last_sender.key));
-            last_sender.value.ip = udp.remoteIP();
-            last_sender.value.port = udp.remotePort();
-        }
     }
     return output;
 }
