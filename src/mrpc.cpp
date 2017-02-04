@@ -110,6 +110,17 @@ Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
     return true;
 }
 
+Json::Value info_service(Service *self, Json::Value &value, bool &success) {
+    Json::Object &output = *new Json::Object();
+    output["uuid"] = guid().chars;
+    output["aliases"] = settings()["aliases"].asArray().clone();
+    output["services"] = new Json::Array();
+    for(auto &service : settings()["services"].asObject()) {
+        output["services"].asArray().append(service.key);
+    }
+    return output;
+}
+
 UUID &MRPC::guid() {
     if(_guid == NULL) {
         if(!settings()["uuid"].isString() || !UUID::is(settings()["uuid"].asString())) {
@@ -137,6 +148,7 @@ void MRPC::init(int port) {
     create_service("alias", &alias_service);
     create_service("reset", &reset_service);
     create_service("wifi", &wifi_settings_service);
+    create_service("info", &info_service);
     WiFi.mode(WIFI_STA);
     bool createAP = true;
     if(!settings()["wifi"].isObject()) {
