@@ -37,6 +37,8 @@ namespace MRPC {
     void wait();
 
     UUID &guid();
+
+    static ESP8266WebServer webserver(80);
     static uint led_indicator = LED_BUILTIN;
     static AMap<Service*> services;
     static AMap<Publisher *> publishers;

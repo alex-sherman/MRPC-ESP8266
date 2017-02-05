@@ -1,8 +1,8 @@
 #include "mrpc.h"
+#include <ESP8266HTTPUpdateServer.h>
 
+ESP8266HTTPUpdateServer httpUpdater;
 using namespace MRPC;
-
-static ESP8266WebServer webserver(80);
 
 void handleRoot() {
     Serial.println("Scanning networks");
@@ -55,6 +55,7 @@ void initWebserver() {
     webserver.on("/", HTTP_GET, handleRoot);
     webserver.on("/connect", HTTP_GET, handleConnect);
     webserver.on("/reset", HTTP_GET, handleReset);
+    httpUpdater.setup(&webserver);
     webserver.begin();
 }
 
