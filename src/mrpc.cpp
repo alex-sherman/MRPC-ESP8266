@@ -113,6 +113,7 @@ Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
 Json::Value info_service(Service *self, Json::Value &value, bool &success) {
     Json::Object &output = *new Json::Object();
     output["uuid"] = guid().chars;
+    output["ip"] = WiFi.localIP().toString();
     output["aliases"] = settings()["aliases"].asArray().clone();
     output["services"] = new Json::Array();
     for(auto &service : settings()["services"].asObject()) {
