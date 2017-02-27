@@ -39,7 +39,7 @@ void save_key_codes() {
   f.close();
 }
 
-Value _irsend(MRPC::Service *self, Value &arg, bool &success) {
+Value _irsend(Value &arg, bool &success) {
   if(arg.isInt()) {
     irsend.sendNEC(arg.asInt(), 32);
     return true;
@@ -54,7 +54,7 @@ Value _irsend(MRPC::Service *self, Value &arg, bool &success) {
   }
 }
 
-Value program(MRPC::Service *self, Value &arg, bool &success) {
+Value program(Value &arg, bool &success) {
   if(arg.isString()) {
     irrecv.resume();
     for(int i = 0; i < 5; i++) {

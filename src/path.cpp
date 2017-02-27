@@ -36,17 +36,12 @@ Path::Path(const char*path) {
 }
 
 bool Path::match(Service *service) {
-    if(strcmp(method, service->method_name) != 0)
+    if(strcmp(method, service->name) != 0)
         return false;
     if(is_wildcard)
         return true;
     if(strncmp(name, guid().chars, 36) == 0)
         return true;
-    for(Json::Value &alias : *service->aliases) {
-        if(!alias.isString()) continue;
-        if(strcmp(alias.asString(), name) == 0)
-            return true;
-    }
     for(auto &alias : settings()["aliases"].asArray()) {
         if(!alias.isString()) continue;
         if(strcmp(alias.asString(), name) == 0)

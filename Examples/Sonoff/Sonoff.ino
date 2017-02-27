@@ -1,5 +1,9 @@
 #include <mrpc.h>
 
+#define SONOFF_BUTTON 0
+#define SONOFF_RELAY  12
+#define SONOFF_LED    13
+
 bool light_value = true;
 
 using namespace Json;
@@ -12,7 +16,8 @@ using namespace MRPC;
 Value light(Value &arg, bool &success) {
     if(arg.isBool()) {
         light_value = arg.asBool();
-        digitalWrite(LED_BUILTIN, !light_value);    //This LED is active low
+        digitalWrite(SONOFF_RELAY, light_value);
+        digitalWrite(SONOFF_LED, !light_value);    //This LED is active low
     }
     return light_value;     //Return the light value no matter what
 }
@@ -20,10 +25,14 @@ Value light(Value &arg, bool &success) {
 void setup() {
     Serial.begin(115200);
     init(50123);            //Begin MRPC on UDP port 50123
-    pinMode(LED_BUILTIN, OUTPUT);
+    pinMode(SONOFF_RELAY, OUTPUT);
+    digitalWrite(SONOFF_RELAY, 1);
+    pinMode(SONOFF_LED, OUTPUT);
+    digitalWrite(SONOFF_LED, 0);
     create_service("light", &light);
 }
 
 void loop() {
     poll();
+    delay(1);
 }

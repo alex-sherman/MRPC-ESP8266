@@ -20,7 +20,7 @@ void pollWebserver();
 
 char*configure_service_error = "Argument must be either null, string, or [string, object]";
 
-Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
+Json::Value reset_service(Json::Value &value, bool &success) {
     if(value.isBool() && value.asBool()) {
         eepromJSON = new Json::Object();
         save_settings();
@@ -29,35 +29,12 @@ Json::Value reset_service(Service *self, Json::Value &value, bool &success) {
     }
     return false;
 }
-Json::Value configure_service(Service *self, Json::Value &value, bool &success) {
-    Json::Object &service_json = settings()["services"].asObject();
-    if(value.isNull() || value.isInvalid()) { return service_json.clone(); }
-    if(value.isString()) {
-        if(service_json[value.asString()].isObject()) {
-            return service_json[value.asString()].asObject().clone();
-        }
-        else { success = false; return "Uknown service"; }
-    }
-    if(!value.isArray()) { success = false; return configure_service_error; }
-    Json::Array &args = value.asArray();
-    if(!args.size() == 2 || !args[0].isString() || !args[1].isObject()) {
-        success = false;
-        return configure_service_error;
-    }
-    const char*name = args[0].asString();
-    if(services.has(name)) {
-        delete &settings()["services"].asObject()[name].asObject();
-        settings()["services"].asObject()[name] = args[1].asObject().clone();
-        save_settings();
-        services[name]->configure();
-    }
-    return true;
-}
 
-Json::Value uuid_service(Service *self, Json::Value &value, bool &success) {
+Json::Value uuid_service(Json::Value &value, bool &success) {
     return guid().chars;
 }
-Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &success) {
+
+Json::Value wifi_settings_service(Json::Value &value, bool &success) {
     success = false;
     if(value.isObject()) {
         settings()["wifi"].free_parsed();
@@ -90,7 +67,7 @@ Json::Value wifi_settings_service(Service *self, Json::Value &value, bool &succe
     return "Invalid wifi setting value";
 }
 
-Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
+Json::Value alias_service(Json::Value &value, bool &success) {
     if(value.isNull() || value.isInvalid()) { return settings()["aliases"].asArray().clone(); }
     else if(value.isString()) {
         bool add = true;
@@ -110,13 +87,13 @@ Json::Value alias_service(Service *self, Json::Value &value, bool &success) {
     return true;
 }
 
-Json::Value info_service(Service *self, Json::Value &value, bool &success) {
+Json::Value info_service(Json::Value &value, bool &success) {
     Json::Object &output = *new Json::Object();
     output["uuid"] = guid().chars;
     output["ip"] = WiFi.localIP().toString();
     output["aliases"] = settings()["aliases"].asArray().clone();
     output["services"] = new Json::Array();
-    for(auto &service : settings()["services"].asObject()) {
+    for(auto &service : services) {
         output["services"].asArray().append(service.key);
     }
     return output;
@@ -144,7 +121,6 @@ void MRPC::init(int port) {
         settings()["aliases"] = new Json::Array();
     Serial.print("Device UUID: ");
     Serial.println(guid().chars);
-    create_service("configure_service", &configure_service);
     create_service("uuid", &uuid_service);
     create_service("alias", &alias_service);
     create_service("reset", &reset_service);
@@ -292,7 +268,7 @@ Json::Value doRPC(Path path, Json::Value value, bool &success) {
     if(!path.is_valid) return Json::Value::invalid();
     for(auto &service : services) {
         if(path.match(service.value)) {
-            return service.value->method(service.value, value, success);
+            return service.value->method(value, success);
         }
     }
     return Json::Value::invalid();
