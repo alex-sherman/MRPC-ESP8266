@@ -186,6 +186,12 @@ void MRPC::poll() {
         }
     }
 
+    for(auto &kvp : responded) {
+        if(kvp.valid && kvp.value.stale()) {
+            kvp.valid = false;
+        }
+    }
+
     transport->poll();
     unsigned long time = millis();
     for (auto const& it : publishers)
@@ -279,7 +285,8 @@ void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
     forward_dst = {MRPCWifi::forward_ip(from.ip), 50123};
     dst = {MRPCWifi::respond_ip(from.ip), 50123};
     transport->senddst(msg, &forward_dst);
-    if(Message::is_request(msg)) {
+    if(Message::is_request(msg) && !responded[msg["src"].asString()].already_responded(msg["id"].asInt())) {
+        responded[msg["src"].asString()].add_response(msg["id"].asInt());
         Path path = Path(msg["dst"].asString());
         bool success = true;
         Json::Value response_value = doRPC(path, msg["value"], success);

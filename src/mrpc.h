@@ -38,6 +38,30 @@ namespace MRPC {
 
     UUID &guid();
 
+    class RequestCache {
+    private:
+        static const int N = 10;
+        int offset = 0;
+        int recv_ids[N];
+    public:
+        long recv_millis;
+        bool already_responded(int id) {
+            for(int i = 0; i < N; i++) {
+                if(recv_ids[i] == id)
+                    return true;
+            }
+            return false;
+        }
+        void add_response(int id) {
+            recv_ids[offset] = id;
+            offset++; offset %= N;
+            recv_millis = millis();
+        }
+        bool stale() {
+            return millis() - recv_millis > 2000;
+        }
+    };
+
     static ESP8266WebServer webserver(80);
     static uint led_indicator = LED_BUILTIN;
     static AMap<Service*> services;
@@ -45,6 +69,7 @@ namespace MRPC {
     static MRPC::UDPTransport* transport;
     static AMap<Result> results;
     static AList<char*> aliases;
+    static AMap<RequestCache> responded;
 }
 
 #endif //_MRPC_H_
