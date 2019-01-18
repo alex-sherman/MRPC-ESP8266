@@ -55,7 +55,14 @@ Value _irsend(Value &arg, bool &success) {
 }
 
 Value program(Value &arg, bool &success) {
-  if(arg.isString()) {
+  if(arg.isArray()) {
+    Json::Array &args = arg.asArray();
+    if(!args[0].isString() && args[1].isInt()) return false;
+    get_key_codes()[args[0].asString()] = args[1].asInt();
+    save_key_codes();
+    return true;
+  }
+  else if(arg.isString()) {
     irrecv.resume();
     for(int i = 0; i < 5; i++) {
       if (irrecv.decode(&results)) {
@@ -67,16 +74,19 @@ Value program(Value &arg, bool &success) {
       delay(1000);
     }
   }
-  return false;
+  return get_key_codes().clone();
 }
 
 void setup()
 {
   pinMode(D3, OUTPUT);
   pinMode(D2, OUTPUT);
+  pinMode(D7, OUTPUT);
+  pinMode(D5, OUTPUT);
   pinMode(D1, INPUT);
   digitalWrite(D3, 1);
   digitalWrite(D2, 0);
+  digitalWrite(D7, 0);
   Serial.begin(115200);
   irrecv.enableIRIn(); // Start the receiver
   irrecv.resume();
