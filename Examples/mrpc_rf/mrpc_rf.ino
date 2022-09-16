@@ -9,12 +9,16 @@ using namespace MRPC;
 // In time slices
 int preambleLen = 12 * 2;
 int preamblePause = 6 * 2;
+int finalPause = 40;
 // In bits
 int messageLen = 66;
 char message[] = { 0xE4, 0x2A, 0xF5, 0x6D, 0x2E, 0x88, 0x07, 0x7F, 0x80 };
 int messageInterval = 400;
 
-int messageIndex = -1;
+int messageIndex = 0;
+int repeatsIndex = -1;
+int repeats = 4;
+
 bool radioValue(int index, bool& value) {
   if (index < preambleLen) {
     value = (index % 2) == 0;
@@ -34,22 +38,31 @@ bool radioValue(int index, bool& value) {
     return true;
   }
   value = false;
-  return false;
+  index -= messageLen * 3;
+  return index < finalPause;
 }
 
 ESP32Timer timer(0);
 bool IRAM_ATTR timerCallback(void * timerNo)
 {
-  messageIndex++;
   bool radioOutput = false;
   bool continueTimer = radioValue(messageIndex, radioOutput);
+  messageIndex++;
   digitalWrite(txPin, radioOutput);
-  if (!continueTimer) { messageIndex = -1; timer.disableTimer(); }
+  if (!continueTimer) {
+    messageIndex = 0;
+    repeatsIndex++;
+    if (repeatsIndex == repeats) {
+      repeatsIndex = -1;
+      timer.disableTimer();
+    }
+  }
   return true;
 }
 
 Value light(Value &arg, bool &success) {
-    if (messageIndex != -1) return false;
+    if (repeatsIndex != -1) return false;
+    repeatsIndex = 0;
     timer.setInterval(messageInterval, timerCallback);
     return true;
 }
