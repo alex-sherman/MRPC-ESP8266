@@ -1,5 +1,12 @@
 #include "mrpc_wifi.h"
 
+#ifdef ARDUINO_ARCH_ESP8266
+#include <ESP8266WiFi.h>
+#endif
+#ifdef ARDUINO_ARCH_ESP32
+#include <WiFi.h>
+#endif
+
 using namespace MRPC;
 
 IPAddress MRPCWifi::client_netmask = IPAddress(255,255,255,255);
@@ -19,7 +26,6 @@ void _connect(const char *ssid, const char *password) {
 
 int match_ssid(String ssid) {
     int n = WiFi.scanComplete();
-
     for(int i = 0; i < n; i++) {
         if(WiFi.SSID(i) == ssid)
             return i;
@@ -30,13 +36,14 @@ int match_ssid(String ssid) {
 void MRPCWifi::_onScanDone(Json::Object &wifi_settings) {
     failures ++;
     if(wifi_settings["ssid"].isString()) {
-        if(match_ssid(wifi_settings["ssid"].asString()) > 0) {
+        if(match_ssid(wifi_settings["ssid"].asString()) >= 0) {
             _connect(wifi_settings["ssid"].asString(), wifi_settings["password"].asString());
             return;
         }
+        Serial.println("No matching SSID found");
     }
     if(wifi_settings["mesh_ssid"].isString()) {
-        if(match_ssid(wifi_settings["mesh_ssid"].asString()) > 0) {
+        if(match_ssid(wifi_settings["mesh_ssid"].asString()) >= 0) {
             _connect(wifi_settings["mesh_ssid"].asString(), wifi_settings["mesh_password"].asString());
             return;
         }
@@ -63,62 +70,37 @@ void MRPCWifi::_onConnect(Json::Object &wifi_settings) {
     }
 }
 
+void MRPCWifi::init() {
+    WiFi.persistent(false);
+    WiFi.mode(WIFI_STA);
+}
+
 void MRPCWifi::poll() {
     Json::Object &wifi_settings = settings()["wifi"].asObject();
-    if((!wifi_settings["ssid"].isString() || failures > 5) && (WiFi.getMode() & WIFI_AP) == 0) {
+    if ((!wifi_settings["ssid"].isString() || failures > 5) && (WiFi.getMode() & WIFI_AP) == 0) {
         setupWiFiAP("password");
     }
-    if(WiFi.status() != WL_DISCONNECTED)
+    if (WiFi.status() == WL_CONNECTED) {
         connection_in_progress = false;
-    if(WiFi.status() != WL_CONNECTED) {
-        if(connected)
-            _onDisconnect();
+        if(!connected) {
+            _onConnect(wifi_settings);
+            connected = true;
+        }
+    } else {
+        if(connected) _onDisconnect();
         connected = false;
         if(!connection_in_progress) {
             if(WiFi.scanComplete() > 0) {
                 _onScanDone(wifi_settings);
-            }
-            if(WiFi.scanComplete() < -1 || WiFi.scanComplete() == 0) {
+            } else {
                 WiFi.scanNetworks(true);
             }
         }
     }
-    else if(!connected) {
-        _onConnect(wifi_settings);
-        connected = true;
-    }
-    /*MRPCWifi::client_netmask = IPAddress(255, 255, 255, 255);
-    if(wifi_settings["ssid"].isString()) {
-        _connect(wifi_settings["ssid"].asString(), wifi_settings["password"].asString());
-        ap_addr = IPAddress(192, 168, 2, 1);
-        ap_netmask = IPAddress(255, 255, 255, 0);
-    }
+}
 
-    if(WiFi.status() != WL_CONNECTED && wifi_settings["mesh_ssid"].isString()) {
-        WiFi.disconnect();
-        Serial.print("Connecting to mesh ");
-        Serial.println(wifi_settings["mesh_ssid"].asString());
-        _connect(wifi_settings["mesh_ssid"].asString(), wifi_settings["mesh_password"].asString());
-        if(WiFi.status() == WL_CONNECTED) {
-            ap_addr = IPAddress(192, 168, WiFi.localIP()[2] + 1, 1);
-            ap_netmask = IPAddress(255, 255, 255, 0);
-        }
-    }
-
-    if(WiFi.status() == WL_CONNECTED) {
-        client_addr = WiFi.localIP();
-        client_netmask = WiFi.subnetMask();
-        Serial.println("Connection successful");
-        if(wifi_settings["mesh_ssid"].isString()) {
-            Serial.println("Starting mesh AP");
-            WiFi.softAPConfig(ap_addr, ap_addr, ap_netmask);
-            WiFi.softAP(wifi_settings["mesh_ssid"].asString(), wifi_settings["mesh_password"].asString());
-        }
-    }
-    else {
-        Serial.println("Connection failed");
-        setupWiFiAP("password");
-    }*/
+IPAddress MRPCWifi::localIP() {
+    return WiFi.localIP();
 }
 
 void MRPCWifi::setupWiFiAP(const char* password) {
@@ -134,5 +116,6 @@ void MRPCWifi::setupWiFiAP(const char* password) {
         AP_NameChar[i] = AP_NameString.charAt(i);
     WiFi.mode(WIFI_AP_STA);
     WiFi.softAPConfig(IPAddress(192, 168, 1, 1), IPAddress(192, 168, 1, 1), IPAddress(255, 255, 255, 0));
-    WiFi.softAP(AP_NameChar, password);
+    if (!WiFi.softAP(AP_NameChar, password))
+        Serial.println("Failed to create AP");
 }

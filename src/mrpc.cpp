@@ -1,8 +1,7 @@
 #include "mrpc.h"
 #include <EEPROM.h>
-#include <ESP8266WiFi.h>
 #include "message.h"
-#include "spi_flash.h"
+//#include "spi_flash.h"
 #include "mrpc_wifi.h"
 
 using namespace MRPC;
@@ -15,10 +14,6 @@ UUID *_guid = NULL;
 bool validWifiSettings();
 int Message::id = 0;
 char eeprom_buffer[1024];
-void initWebserver();
-void pollWebserver();
-
-char*configure_service_error = "Argument must be either null, string, or [string, object]";
 
 Json::Value reset_service(Json::Value &value, bool &success) {
     if(value.isBool() && value.asBool()) {
@@ -90,7 +85,7 @@ Json::Value alias_service(Json::Value &value, bool &success) {
 Json::Value info_service(Json::Value &value, bool &success) {
     Json::Object &output = *new Json::Object();
     output["uuid"] = guid().chars;
-    output["ip"] = WiFi.localIP().toString();
+    output["ip"] = mrpcWifi.localIP().toString();
     output["aliases"] = settings()["aliases"].asArray().clone();
     output["services"] = new Json::Array();
     for(auto &service : services) {
@@ -111,10 +106,10 @@ UUID &MRPC::guid() {
 }
 
 void MRPC::init(int port) {
-    WiFi.persistent(false);
+    mrpcWifi.init();
     EEPROM.begin(sizeof(eeprom_buffer));
     Serial.println();
-    initWebserver();
+    webserver.init();
     transport = new UDPTransport(port);
     Message::id = 0;
     if(!settings()["aliases"].isArray())
@@ -126,15 +121,13 @@ void MRPC::init(int port) {
     create_service("reset", &reset_service);
     create_service("wifi", &wifi_settings_service);
     create_service("info", &info_service);
-    WiFi.mode(WIFI_STA);
-    bool createAP = true;
     if(!settings()["wifi"].isObject()) {
         Serial.println("Couldn't find WiFi settings");
         settings()["wifi"] = *(new Json::Object());
         Json::println(settings(), Serial);
     }
     Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
+    Serial.println(mrpcWifi.localIP());
 }
 
 String inputString = "";
@@ -176,7 +169,7 @@ void handleSerialRPC() {
 
 void MRPC::poll() {
     handleSerialRPC();
-    pollWebserver();
+    webserver.poll();
     mrpcWifi.poll();
     bool output = false;
     for(auto &kvp : results) {
@@ -281,10 +274,8 @@ Json::Value doRPC(Path path, Json::Value value, bool &success) {
 }
 
 void MRPC::on_recv(Json::Object &msg, UDPEndpoint from) {
-    struct UDPEndpoint forward_dst, dst;
-    forward_dst = {MRPCWifi::forward_ip(from.ip), 50123};
-    dst = {MRPCWifi::respond_ip(from.ip), 50123};
-    transport->senddst(msg, &forward_dst);
+    struct UDPEndpoint dst;
+    dst = {from.ip, 50123};
     if(Message::is_request(msg) && !responded[msg["src"].asString()].already_responded(msg["id"].asInt())) {
         responded[msg["src"].asString()].add_response(msg["id"].asInt());
         Path path = Path(msg["dst"].asString());

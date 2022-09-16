@@ -17,13 +17,15 @@ hex_char byte_to_hex(uint8_t b) {
     char output[2];
     output[0] = hex_lookup[MS_nibble];
     output[1] = hex_lookup[LS_nibble];
-    //Holy shit C++ sucks, can I seriously not return a char array any other way?
-    //You can't intialize a character array by copy? Come on C++
     return hex_char{{output[0], output[1]}};
 }
 
+#ifdef ARDUINO_ARCH_ESP8266
+int esp_random() { return RANDOM_REG32; }
+#endif
+
 UUID::UUID() {
-    randomSeed((int)RANDOM_REG32);
+    randomSeed((int)esp_random());
     for(int i = 0; i < 36; i+=2) {
         uint8_t b = random(256);
         if(i == 6) b = 0x40 | (b & 0x0F);

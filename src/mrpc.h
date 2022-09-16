@@ -14,7 +14,7 @@
 #include "amap.h"
 #include "transport.h"
 #include "result.h"
-#include <ESP8266WebServer.h>
+#include "mrpc_webserver.h"
 
 #ifndef LED_BUILTIN
 #define LED_BUILTIN 2
@@ -62,7 +62,7 @@ namespace MRPC {
         }
     };
 
-    static ESP8266WebServer webserver(80);
+    static MRPCWebServer webserver;
     static uint led_indicator = LED_BUILTIN;
     static AMap<Service*> services;
     static AMap<Publisher *> publishers;

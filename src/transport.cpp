@@ -45,8 +45,8 @@ void UDPTransport::senddst(Json::Object &msg, struct UDPEndpoint *address) {
     size_t len = Json::measure(msg);
     char buffer[len];
     Json::dump(msg, buffer, sizeof(buffer));
-    udp.beginPacket(address->ip, address->port); //NTP requests are to port 123
-    udp.write(buffer, sizeof(buffer));
+    udp.beginPacket(address->ip, address->port);
+    udp.write((uint8_t*)buffer, sizeof(buffer));
     udp.endPacket();
 }
 
